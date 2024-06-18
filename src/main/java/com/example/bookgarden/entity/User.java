@@ -1,11 +1,9 @@
 package com.example.bookgarden.entity;
-import com.example.bookgarden.constant.Gender;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.bson.types.ObjectId;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -42,9 +40,9 @@ public class User implements Serializable {
     private Date birthday;
     private List<String> addresses = new ArrayList<>();
     private String cart;
-    private List<ObjectId> historyOrders;
+    private List<ObjectId> historyOrders = new ArrayList<>();
     private String wishList;
-    private List<ObjectId> posts;
+    private List<ObjectId> posts = new ArrayList<>();
     private float points;
 }
 

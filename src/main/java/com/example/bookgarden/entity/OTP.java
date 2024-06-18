@@ -1,16 +1,14 @@
 package com.example.bookgarden.entity;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "otps")
@@ -20,4 +18,10 @@ public class OTP {
     private String email;
     private String otp;
     private LocalDateTime expirationTime;
+
+    public OTP(String email, String otp, LocalDateTime expirationTime) {
+        this.email = email;
+        this.otp = otp;
+        this.expirationTime = expirationTime;
+    }
 }

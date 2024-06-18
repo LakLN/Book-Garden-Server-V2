@@ -7,10 +7,7 @@ import com.example.bookgarden.entity.User;
 import com.example.bookgarden.repository.UserRepository;
 import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.security.UserDetail;
-import com.example.bookgarden.service.OTPService;
-import com.example.bookgarden.service.RoleService;
-import com.example.bookgarden.service.UserService;
-import com.example.bookgarden.service.TokenService;
+import com.example.bookgarden.service.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -62,7 +59,9 @@ public class AuthController {
     @Autowired
     private TokenService tokenService;
     @Autowired
-    private OTPService OTPService;
+    private OTPService otpService;
+    @Autowired
+    private AuthService authService;
     private final String clientId = "334650103063-k5oinc902jh7nsk2nd709va5bhh9961f.apps.googleusercontent.com";
     private final String clientSecret = "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";
     private final String redirectUri = "http://localhost:8081/api/v1/auth/login/oauth2/code/google";
@@ -116,58 +115,41 @@ public class AuthController {
         String accessToken = extractAccessToken(responseBody);
         return accessToken;
     }
+
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterDTO registerDTO, BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
-            List<ObjectError> errors = bindingResult.getAllErrors();
             List<String> errorMessages = new ArrayList<>();
-            for (ObjectError error : errors) {
-                String errorMessage = error.getDefaultMessage();
-                errorMessages.add(errorMessage);
+            for (ObjectError error : bindingResult.getAllErrors()) {
+                errorMessages.add(error.getDefaultMessage());
             }
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                                                .success(false)
-                                                .message("Dữ liệu đầu vào không hợp lệ")
-                                                .data(errorMessages)
-                                                .build());
-        }
-        if (!registerDTO.getPassWord().equals(registerDTO.getConfirmPassWord())) {
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                                                .success(false)
-                                                .message("Mật khẩu nhắc lại không khớp")
-                                                .data(null)
-                                                .build());
-        }
-        Optional<User> existingUser = userRepository.findByEmail(registerDTO.getEmail());
-        if (existingUser.isPresent()) {
-            return ResponseEntity.status(400).body(GenericResponse.builder()
+            return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Email đã tồn tại trong hệ thống")
+                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .data(errorMessages)
+                    .build());
+        }
+
+        if (!registerDTO.getPassWord().equals(registerDTO.getConfirmPassWord())) {
+            return ResponseEntity.badRequest().body(GenericResponse.builder()
+                    .success(false)
+                    .message("Mật khẩu nhắc lại không khớp")
                     .data(null)
                     .build());
         }
-        User newUser = new User();
-        newUser.setFullName(registerDTO.getFullName());
-        newUser.setPassWord(passwordEncoder.encode(registerDTO.getPassWord()));
-        newUser.setEmail(registerDTO.getEmail());
-        newUser.setPhone(registerDTO.getPhone());
 
-        Role userRole = roleService.findByRoleName("Customer");
-        newUser.setRole(userRole.getRoleName());
+        GenericResponse response = authService.registerUser(registerDTO);
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(400).body(response);
+        }
 
-        userRepository.save(newUser);
-        OTPService.sendRegisterOtp(registerDTO.getEmail());
-        return ResponseEntity.ok().body(GenericResponse.builder()
-                .success(true)
-                .message("Đăng ký thành công!")
-                .data("")
-                 .build());
+        return ResponseEntity.ok().body(response);
     }
 
     @PostMapping("/send-register-otp")
     public ResponseEntity<GenericResponse> sendRegisterOtp(@RequestBody OTPRequest otpRequest) {
         try {
-            OTPService.sendRegisterOtp(otpRequest.getEmail());
+            otpService.sendRegisterOtp(otpRequest.getEmail());
             return ResponseEntity.ok()
                     .body(GenericResponse.builder()
                             .success(true)
@@ -188,7 +170,7 @@ public class AuthController {
     @PostMapping("/send-forgot-password-otp")
     public ResponseEntity<GenericResponse> sendForgotPasswordOtp(@RequestBody OTPRequest otpRequest) {
         try {
-            OTPService.sendForgotPasswordOtp(otpRequest.getEmail());
+           otpService.sendForgotPasswordOtp(otpRequest.getEmail());
             return ResponseEntity.ok()
                     .body(GenericResponse.builder()
                             .success(true)
@@ -207,63 +189,71 @@ public class AuthController {
     }
 
     @PostMapping("/verify-OTP")
-    public ResponseEntity<GenericResponse> verifyOtp(@RequestBody VerifyOtpRequest verifyOtpRequest) {
-        boolean isOtpVerified = OTPService.verifyOtp(verifyOtpRequest.getEmail(), verifyOtpRequest.getOtp());
-
+    public ResponseEntity<GenericResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest verifyOtpRequest) {
+        boolean isOtpVerified = otpService.verifyOtp(verifyOtpRequest.getEmail(), verifyOtpRequest.getOtp());
         if (isOtpVerified) {
-            return ResponseEntity.ok()
-                    .body(GenericResponse.builder()
-                            .success(true)
-                            .message("OTP verified successfully!")
-                            .data(null)
-                            .build());
+            return ResponseEntity.ok().body(GenericResponse.builder()
+                    .success(true)
+                    .message("OTP verified successfully!")
+                    .data(null)
+                    .build());
         } else {
-            return ResponseEntity.badRequest()
-                    .body(GenericResponse.builder()
-                            .success(false)
-                            .message("Invalid OTP or expired.")
-                            .data(null)
-                            .build());
+            return ResponseEntity.badRequest().body(GenericResponse.builder()
+                    .success(false)
+                    .message("Invalid OTP or expired.")
+                    .data(null)
+                    .build());
         }
     }
 
     @PostMapping("/forgot-password")
-    public  ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordDTO forgotPasswordDTO, BindingResult bindingResult){
-        if (bindingResult.hasErrors()) {
-            List<ObjectError> errors = bindingResult.getAllErrors();
-            List<String> errorMessages = new ArrayList<>();
-            for (ObjectError error : errors) {
-                String errorMessage = error.getDefaultMessage();
-                errorMessages.add(errorMessage);
+    public ResponseEntity<GenericResponse> forgotPassword(@Valid @RequestBody ForgotPasswordDTO forgotPasswordDTO, BindingResult bindingResult) {
+        try {
+            if (bindingResult.hasErrors()) {
+                List<String> errorMessages = new ArrayList<>();
+                for (ObjectError error : bindingResult.getAllErrors()) {
+                    errorMessages.add(error.getDefaultMessage());
+                }
+                return ResponseEntity.badRequest().body(GenericResponse.builder()
+                        .success(false)
+                        .message("Dữ liệu đầu vào không hợp lệ")
+                        .data(errorMessages)
+                        .build());
             }
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Dữ liệu đầu vào không hợp lệ")
-                    .data(errorMessages)
-                    .build());
+
+            if (!forgotPasswordDTO.getPassWord().equals(forgotPasswordDTO.getConfirmPassWord())) {
+                return ResponseEntity.badRequest().body(GenericResponse.builder()
+                        .success(false)
+                        .message("Mật khẩu nhắc lại không khớp")
+                        .data(null)
+                        .build());
+            }
+
+            Optional<User> existingUser = userRepository.findByEmail(forgotPasswordDTO.getEmail());
+            if (!existingUser.isPresent()) {
+                return ResponseEntity.badRequest().body(GenericResponse.builder()
+                        .success(false)
+                        .message("Email không tồn tại trong hệ thống")
+                        .data(null)
+                        .build());
+            }
+
+            otpService.sendForgotPasswordOtp(forgotPasswordDTO.getEmail());
+            return ResponseEntity.ok()
+                    .body(GenericResponse.builder()
+                            .success(true)
+                            .message("OTP sent successfully!")
+                            .data(null)
+                            .build());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(GenericResponse.builder()
+                            .success(false)
+                            .message("An error occurred while sending OTP.")
+                            .data(null)
+                            .build());
         }
-        if (!forgotPasswordDTO.getPassWord().equals(forgotPasswordDTO.getConfirmPassWord())) {
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Mật khẩu nhắc lại không khớp")
-                    .data(null)
-                    .build());
-        }
-        Optional<User> existingUser = userRepository.findByEmail(forgotPasswordDTO.getEmail());
-        if (!existingUser.isPresent()) {
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Email không tồn tại trong hệ thống")
-                    .data(null)
-                    .build());
-        }
-        User user = existingUser.get();
-        user.setPassWord(passwordEncoder.encode(forgotPasswordDTO.getPassWord()));
-        return ResponseEntity.ok().body(GenericResponse.builder()
-                .success(true)
-                .message("Đổi mật khẩu thành công")
-                .data(null)
-                .build());
     }
 
     @PostMapping("/login")

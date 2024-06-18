@@ -276,7 +276,14 @@ public class UserService {
                     .build());
         }
     }
-
+    public void updatePassword(String email, String newPassword) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.setPassWord(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+        }
+    }
     private UserDashboardResponseDTO convertToUserDashboardDTO(User user){
         ModelMapper modelMapper = new ModelMapper();
         UserDashboardResponseDTO userResponse = modelMapper.map(user, UserDashboardResponseDTO.class);

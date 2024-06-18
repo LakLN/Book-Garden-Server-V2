@@ -1,14 +1,12 @@
 package com.example.bookgarden.dto;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Data;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Data
 @Builder
 public class GenericResponse {
-    private Boolean success;
+    private boolean success;
     private String message;
     private Object data;
 }

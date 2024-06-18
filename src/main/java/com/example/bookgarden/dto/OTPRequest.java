@@ -1,14 +1,12 @@
 package com.example.bookgarden.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
+import lombok.Data;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Data
 public class OTPRequest {
-    String email;
+    @NotEmpty(message = "Email không được bỏ trống")
+    @Email(message = "Email không đúng định dạng")
+    private String email;
 }

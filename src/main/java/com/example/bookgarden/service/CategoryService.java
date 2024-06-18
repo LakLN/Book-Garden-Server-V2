@@ -33,8 +33,8 @@ public class CategoryService {
     private BookRepository bookRepository;
     @Autowired
     private BookService bookService;
-    @Autowired
-    private Cache cache;
+
+    Cache cache;
 
     public ResponseEntity<GenericResponse> addCategory(String userId, AddCategoryRequestDTO addCategoryRequestDTO){
         try {

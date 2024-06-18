@@ -15,6 +15,10 @@ public class Role implements Serializable {
     @Id
     private String id;
     private String roleName;
+
+    public Role(String roleName){
+        this.roleName = roleName;
+    }
 }
 
 

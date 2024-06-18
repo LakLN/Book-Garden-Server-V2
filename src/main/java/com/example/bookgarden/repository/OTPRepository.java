@@ -10,6 +10,6 @@ import java.util.Optional;
 
 @Repository
 public interface OTPRepository extends MongoRepository<OTP, String> {
-    List<OTP> findByExpirationTimeBefore(LocalDateTime expirationTime);
+    List<OTP> findByExpirationTimeBefore(LocalDateTime now);
     Optional<OTP> findByEmail(String email);
 }

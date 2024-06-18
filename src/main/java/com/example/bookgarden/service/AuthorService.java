@@ -8,8 +8,11 @@ import com.example.bookgarden.entity.User;
 import com.example.bookgarden.repository.AuthorRepository;
 import com.example.bookgarden.repository.BookRepository;
 import com.example.bookgarden.repository.UserRepository;
+import org.bson.types.ObjectId;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.jms.JmsProperties;
+import org.springframework.cache.Cache;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,8 @@ public class AuthorService {
     private BookRepository bookRepository;
     @Autowired
     private UserRepository userRepository;
+
+    Cache cache;
     public ResponseEntity<GenericResponse> getAllAuthors() {
         try {
             List<Author> authors = authorRepository.findAll();
@@ -185,5 +190,12 @@ public class AuthorService {
         authorResponseDTO.setBooks(bookDTOs);
 
         return authorResponseDTO;
+    }
+
+    public List<Author> findAuthorsByIds(List<ObjectId> authorIds) {
+        List<Author> authors = cache.get("authors:" + authorIds, () -> {
+            return authorRepository.findAllByIdIn(authorIds);
+        });
+        return authors;
     }
 }

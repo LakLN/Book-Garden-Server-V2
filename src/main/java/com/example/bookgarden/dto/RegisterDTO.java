@@ -21,5 +21,6 @@ public class RegisterDTO {
     private String passWord;
 
     @NotEmpty(message = "Mật khẩu nhắc lại không được bỏ trống")
+    @Size(min = 8, message = "Mật khẩu nhắc lại phải có ít nhất 8 kí tự")
     private String confirmPassWord;
 }

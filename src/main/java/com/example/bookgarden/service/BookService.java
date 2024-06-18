@@ -40,8 +40,6 @@ public class BookService {
     @Autowired
     CategoryRepository categoryRepository;
     @Autowired
-    private CategoryService categoryService;
-    @Autowired
     AuthorRepository authorRepository;
     @Autowired
     private UserRepository userRepository;
@@ -49,6 +47,8 @@ public class BookService {
     private Cloudinary cloudinary;
     @Autowired
     private ReviewRepository reviewRepository;
+    @Autowired
+    private  ReviewService reviewService;
     public ResponseEntity<GenericResponse> getAllBooks() {
         try {
             List<Book> books = bookRepository.findByIsDeletedFalse();
@@ -577,9 +577,9 @@ public class BookService {
         bookDetailRepository.findByBook(book.getId())
                 .ifPresent(bookDetail -> modelMapper.map(bookDetail, bookDetailDTO));
 
-        List<Category> categories = categoryService.findCategoriesByIds(book.getCategories());
+        List<Category> categories = categoryRepository.findAllByIdIn(book.getCategories());
         List<Author> authors = authorRepository.findAllByIdIn(book.getAuthors());
-        List<Review> reviews = reviewRepository.findAllByIdIn(book.getReviews());
+        List<Review> reviews = reviewService.findReviewsByIds(book.getReviews());
 
         List<CategoryDTO> categoryDTOs = categories.stream()
                 .map(category -> modelMapper.map(category, CategoryDTO.class))
