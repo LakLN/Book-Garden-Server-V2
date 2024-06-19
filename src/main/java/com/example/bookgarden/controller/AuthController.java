@@ -1,7 +1,6 @@
 package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
-import com.example.bookgarden.entity.Role;
 import com.example.bookgarden.entity.Token;
 import com.example.bookgarden.entity.User;
 import com.example.bookgarden.repository.UserRepository;
@@ -10,36 +9,25 @@ import com.example.bookgarden.security.UserDetail;
 import com.example.bookgarden.service.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.IOException;
-import java.security.Principal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -208,115 +196,48 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<GenericResponse> forgotPassword(@Valid @RequestBody ForgotPasswordDTO forgotPasswordDTO, BindingResult bindingResult) {
-        try {
-            if (bindingResult.hasErrors()) {
-                List<String> errorMessages = new ArrayList<>();
-                for (ObjectError error : bindingResult.getAllErrors()) {
-                    errorMessages.add(error.getDefaultMessage());
-                }
-                return ResponseEntity.badRequest().body(GenericResponse.builder()
-                        .success(false)
-                        .message("Dữ liệu đầu vào không hợp lệ")
-                        .data(errorMessages)
-                        .build());
+        if (bindingResult.hasErrors()) {
+            List<String> errorMessages = new ArrayList<>();
+            for (ObjectError error : bindingResult.getAllErrors()) {
+                errorMessages.add(error.getDefaultMessage());
             }
-
-            if (!forgotPasswordDTO.getPassWord().equals(forgotPasswordDTO.getConfirmPassWord())) {
-                return ResponseEntity.badRequest().body(GenericResponse.builder()
-                        .success(false)
-                        .message("Mật khẩu nhắc lại không khớp")
-                        .data(null)
-                        .build());
-            }
-
-            Optional<User> existingUser = userRepository.findByEmail(forgotPasswordDTO.getEmail());
-            if (!existingUser.isPresent()) {
-                return ResponseEntity.badRequest().body(GenericResponse.builder()
-                        .success(false)
-                        .message("Email không tồn tại trong hệ thống")
-                        .data(null)
-                        .build());
-            }
-
-            otpService.sendForgotPasswordOtp(forgotPasswordDTO.getEmail());
-            return ResponseEntity.ok()
-                    .body(GenericResponse.builder()
-                            .success(true)
-                            .message("OTP sent successfully!")
-                            .data(null)
-                            .build());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(GenericResponse.builder()
-                            .success(false)
-                            .message("An error occurred while sending OTP.")
-                            .data(null)
-                            .build());
+            return ResponseEntity.badRequest().body(GenericResponse.builder()
+                    .success(false)
+                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .data(errorMessages)
+                    .build());
         }
+
+        GenericResponse response = authService.forgotPassword(forgotPasswordDTO);
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(400).body(response);
+        }
+
+        return ResponseEntity.ok().body(response);
     }
 
     @PostMapping("/login")
     @Transactional
     public ResponseEntity<?> login(@Valid @RequestBody LoginDTO loginDTO, BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
-            List<ObjectError> errors = bindingResult.getAllErrors();
-            List<String> errorMessages = new ArrayList<>();
-            for (ObjectError error : errors) {
-                String errorMessage = error.getDefaultMessage();
-                errorMessages.add(errorMessage);
-            }
+            List<String> errorMessages = bindingResult.getAllErrors().stream()
+                    .map(ObjectError::getDefaultMessage)
+                    .collect(Collectors.toList());
             return ResponseEntity.status(400).body(GenericResponse.builder()
                     .success(false)
                     .message("Dữ liệu đầu vào không hợp lệ")
                     .data(errorMessages)
                     .build());
         }
-        Optional<User> optionalUser = userService.findByEmail(loginDTO.getEmail());
-        if (!optionalUser.isPresent()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Tài khoản không tồn tại")
-                    .data(null)
-                    .build());
-        }
-        User user = optionalUser.get();
-        if(user.getIsVerified()==false){
-            return ResponseEntity.ok().body(GenericResponse.builder()
-                    .success(true)
-                    .message("Tài khoản chưa được xác thực")
-                    .data(null)
-                    .build());
-        }
-        if(user.getIsActive()==false){
-            return ResponseEntity.ok().body(GenericResponse.builder()
-                    .success(true)
-                    .message("Tài khoản đã bị vô hiệu hóa")
-                    .data(null)
-                    .build());
-        }
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginDTO.getEmail(),
-                        loginDTO.getPassWord()));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserDetail userDetail = (UserDetail) authentication.getPrincipal();
-        String accessToken = jwtTokenProvider.generateAccessToken(userDetail);
-        Token refreshToken = new Token();
-        String token = jwtTokenProvider.generateRefreshToken(userDetail);
-        refreshToken.setToken(token);
-        refreshToken.setUserId(userDetail.getUserId());
 
-        tokenService.save(refreshToken);
-        Map<String, String> tokenMap = new HashMap<>();
-        tokenMap.put("accessToken", accessToken);
-        tokenMap.put("refreshToken", token);
+        GenericResponse response = authService.login(loginDTO);
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
 
-        return ResponseEntity.ok().body(GenericResponse.builder()
-                .success(true)
-                .message("Login successfully!")
-                .data(tokenMap)
-                .build());
+        return ResponseEntity.ok().body(response);
     }
+
 
 
 
