@@ -190,7 +190,6 @@ public class AuthService {
             newUser.setAvatar(googleUserInfo.getPicture());
             newUser.setIsVerified(true); // Assuming Google users are verified by default
             newUser.setIsActive(true);
-
             newUser.setRole(roleService.findByRoleName("Customer").getRoleName());
 
             userRepository.save(newUser);

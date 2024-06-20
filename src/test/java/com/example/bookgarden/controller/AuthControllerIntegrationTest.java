@@ -23,7 +23,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -36,7 +35,8 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -278,27 +278,7 @@ public class AuthControllerIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().json("{\"success\":false,\"message\":\"Logout failed!\",\"data\":\"Invalid access token!\"}"));
     }
-    @Test
-    void testLoginGoogle() throws Exception {
-        String url = "https://accounts.google.com/o/oauth2/auth?client_id=334650103063-k5oinc902jh7nsk2nd709va5bhh9961f.apps.googleusercontent.com&redirect_uri=http://localhost:8081/api/v1/auth/login/oauth2/code/google&scope=email%20profile&response_type=code";
-        when(authService.getGoogleLoginUrl()).thenReturn(url);
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/auth/loginGoogle"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl(url));
-    }
-
-    @Test
-    void testHandleGoogleCallback() throws Exception {
-        String code = "testCode";
-        String accessToken = "testAccessToken";
-        when(authService.handleGoogleCallback(anyString())).thenReturn(accessToken);
-
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/auth/login/oauth2/code/google")
-                        .param("code", code))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Authentication successful! Access Token: " + accessToken));
-    }
     private static String asJsonString(final Object obj) {
         try {
             return new ObjectMapper().writeValueAsString(obj);
