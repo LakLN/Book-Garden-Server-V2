@@ -11,7 +11,6 @@ import com.example.bookgarden.security.UserDetailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -42,7 +41,7 @@ public class TokenService {
 
                 if (!tokens.isEmpty() && jwtTokenProvider.validateToken(tokens.get(0).getToken())) {
                     if (!tokens.get(0).getToken().equals(refreshToken)) {
-                        return ResponseEntity.status(HttpStatus.NOT_FOUND.value())
+                        return ResponseEntity.status(HttpStatus.NOT_FOUND)
                                 .body(GenericResponse.builder()
                                         .success(false)
                                         .message("RefreshToken is not present. Please login again!")
@@ -56,7 +55,7 @@ public class TokenService {
                     resultMap.put("accessToken", accessToken);
                     resultMap.put("refreshToken", refreshToken);
 
-                    return ResponseEntity.status(200)
+                    return ResponseEntity.status(HttpStatus.OK)
                             .body(GenericResponse.builder()
                                     .success(true)
                                     .message("")
@@ -64,14 +63,14 @@ public class TokenService {
                                     .build());
                 }
             }
-            return ResponseEntity.status(401)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(GenericResponse.builder()
                             .success(false)
                             .message("Unauthorized. Please login again!")
                             .data("")
                             .build());
         } catch (Exception e) {
-            return ResponseEntity.status(500)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(GenericResponse.builder()
                             .success(false)
                             .message(e.getMessage())
@@ -80,8 +79,7 @@ public class TokenService {
         }
     }
 
-
-    public ResponseEntity<?> logout(String refreshToken) {
+    public ResponseEntity<GenericResponse> logout(String refreshToken) {
         try {
             if (jwtTokenProvider.validateToken(refreshToken)) {
                 Optional<Token> optionalRefreshToken = tokenRepository.findByToken(refreshToken);
@@ -116,6 +114,25 @@ public class TokenService {
                             .success(false)
                             .message(e.getMessage())
                             .data("")
+                            .build());
+        }
+    }
+
+    public ResponseEntity<GenericResponse> logoutAll(String userId) {
+        try {
+            tokenRepository.deleteByUserId(userId);
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(GenericResponse.builder()
+                            .success(true)
+                            .message("Logged out from all devices successfully!")
+                            .data(null)
+                            .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(GenericResponse.builder()
+                            .success(false)
+                            .message(e.getMessage())
+                            .data(null)
                             .build());
         }
     }

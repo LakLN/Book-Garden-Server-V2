@@ -1,11 +1,6 @@
 package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
-import com.example.bookgarden.entity.Token;
-import com.example.bookgarden.entity.User;
-import com.example.bookgarden.repository.UserRepository;
-import com.example.bookgarden.security.JwtTokenProvider;
-import com.example.bookgarden.security.UserDetail;
 import com.example.bookgarden.service.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,11 +8,6 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
@@ -33,75 +23,21 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private RoleService roleService;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private UserService userService;
-    @Autowired
-    private AuthenticationManager authenticationManager;
-    @Autowired
-    private JwtTokenProvider jwtTokenProvider;
-    @Autowired
     private TokenService tokenService;
     @Autowired
     private OTPService otpService;
     @Autowired
     private AuthService authService;
-    private final String clientId = "334650103063-k5oinc902jh7nsk2nd709va5bhh9961f.apps.googleusercontent.com";
-    private final String clientSecret = "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";
-    private final String redirectUri = "http://localhost:8081/api/v1/auth/login/oauth2/code/google";
-    private final String tokenUri = "https://accounts.google.com/o/oauth2/token";
 
     @GetMapping("/loginGoogle")
     public ModelAndView login() {
-        String clientId = "3334650103063-k5oinc902jh7nsk2nd709va5bhh9961f.apps.googleusercontent.com";
-        String redirectUri = "http://localhost:8081/api/v1/auth/login/oauth2/code/google";
-        String url = "https://accounts.google.com/o/oauth2/auth?client_id=" + clientId +
-                "&redirect_uri=" + redirectUri + "&scope=email%20profile&response_type=code";
-
-        return new ModelAndView("redirect:" + url);
+        return new ModelAndView("redirect:" + authService.getGoogleLoginUrl());
     }
 
     @GetMapping("/login/oauth2/code/google")
-    public ResponseEntity<String> handleGoogleCallback(@RequestParam("code") String code) {
-        String accessToken = exchangeCodeForToken(code);
-
-        return ResponseEntity.ok("Authentication successful! Access Token: " + accessToken);
-    }
-
-    private String extractAccessToken(String responseBody) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(responseBody);
-
-            if (jsonNode.has("access_token")) {
-                String accessToken = jsonNode.get("access_token").asText();
-                return accessToken;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    private String exchangeCodeForToken(String code) {
-        RestTemplate restTemplate = new RestTemplate();
-
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(tokenUri)
-                .queryParam("code", code)
-                .queryParam("client_id", clientId)
-                .queryParam("client_secret", clientSecret)
-                .queryParam("redirect_uri", redirectUri)
-                .queryParam("grant_type", "authorization_code");
-
-        ResponseEntity<String> response = restTemplate.postForEntity(builder.toUriString(), null, String.class);
-
-        String responseBody = response.getBody();
-        String accessToken = extractAccessToken(responseBody);
-        return accessToken;
+    public ResponseEntity<GenericResponse> handleGoogleCallback(@RequestParam("code") String code) {
+        GenericResponse response = authService.handleGoogleCallback(code);
+        return ResponseEntity.status(response.isSuccess() ? HttpStatus.OK : HttpStatus.BAD_REQUEST).body(response);
     }
 
     @PostMapping("/register")
@@ -238,31 +174,17 @@ public class AuthController {
         return ResponseEntity.ok().body(response);
     }
 
-
-
-
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestHeader("Authorization") String authorizationHeader,
-                                    @RequestBody TokenRequestDTO tokenRequestDTO) {
-        String accessToken = authorizationHeader.substring(7);
-        if (jwtTokenProvider.validateToken(accessToken) && jwtTokenProvider.validateToken(tokenRequestDTO.getRefreshToken())) {
-            String userIdFromAccessToken = jwtTokenProvider.getUserIdFromJwt(accessToken);
-            String userIdFromRefreshToken = jwtTokenProvider.getUserIdFromRefreshToken(tokenRequestDTO.getRefreshToken());
-            if (userIdFromAccessToken.equals(userIdFromRefreshToken)) {
-                return tokenService.logout(tokenRequestDTO.getRefreshToken());
-            }
-        }
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(GenericResponse.builder()
-                        .success(false)
-                        .message("Logout failed!")
-                        .data("Please login before logout!")
-                        .build());
+    public ResponseEntity<GenericResponse> logout(@RequestHeader("Authorization") String authorizationHeader,
+                                                  @RequestBody TokenRequestDTO tokenRequestDTO) {
+        return authService.logout(authorizationHeader, tokenRequestDTO);
     }
-
+    @PostMapping("/logout-all")
+    public ResponseEntity<GenericResponse> logoutAll(@RequestHeader("Authorization") String authorizationHeader) {
+        return authService.logoutAll(authorizationHeader);
+    }
     @PostMapping("/refresh-token")
-    public ResponseEntity<?> refreshAccessToken(@RequestBody TokenRequestDTO tokenRequestDTO) {
+    public ResponseEntity<GenericResponse> refreshAccessToken(@RequestBody TokenRequestDTO tokenRequestDTO) {
         String refreshToken = tokenRequestDTO.getRefreshToken();
         return tokenService.refreshAccessToken(refreshToken);
     }

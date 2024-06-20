@@ -16,11 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -28,12 +31,12 @@ import java.util.HashMap;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -194,6 +197,107 @@ public class AuthControllerIntegrationTest {
                         .content("{\"email\":\"notfound@example.com\",\"passWord\":\"password123\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().json("{\"success\":false,\"message\":\"Tài khoản không tồn tại\",\"data\":null}"));
+    }
+    @Test
+    void testLogout_Success() throws Exception {
+        TokenRequestDTO tokenRequestDTO = new TokenRequestDTO();
+        tokenRequestDTO.setRefreshToken("refreshToken");
+
+        ResponseEntity<GenericResponse> response = ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Logout successfully!")
+                .data(null)
+                .build());
+
+        when(authService.logout(anyString(), any(TokenRequestDTO.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer accessToken")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(tokenRequestDTO)))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"success\":true,\"message\":\"Logout successfully!\",\"data\":null}"));
+    }
+
+    @Test
+    void testLogout_Failed() throws Exception {
+        TokenRequestDTO tokenRequestDTO = new TokenRequestDTO();
+        tokenRequestDTO.setRefreshToken("refreshToken");
+
+        ResponseEntity<GenericResponse> response = ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(GenericResponse.builder()
+                        .success(false)
+                        .message("Logout failed!")
+                        .data("Please login before logout!")
+                        .build());
+
+        when(authService.logout(anyString(), any(TokenRequestDTO.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer accessToken")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(tokenRequestDTO)))
+                .andDo(print())
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().json("{\"success\":false,\"message\":\"Logout failed!\",\"data\":\"Please login before logout!\"}"));
+    }
+    @Test
+    void testLogoutAll_Success() throws Exception {
+        ResponseEntity<GenericResponse> response = ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Logged out from all devices successfully!")
+                .data(null)
+                .build());
+
+        when(authService.logoutAll(anyString())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/logout-all")
+                        .header("Authorization", "Bearer accessToken")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"success\":true,\"message\":\"Logged out from all devices successfully!\",\"data\":null}"));
+    }
+
+    @Test
+    void testLogoutAll_Failed() throws Exception {
+        ResponseEntity<GenericResponse> response = ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(GenericResponse.builder()
+                        .success(false)
+                        .message("Logout failed!")
+                        .data("Invalid access token!")
+                        .build());
+
+        when(authService.logoutAll(anyString())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/logout-all")
+                        .header("Authorization", "Bearer accessToken")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().json("{\"success\":false,\"message\":\"Logout failed!\",\"data\":\"Invalid access token!\"}"));
+    }
+    @Test
+    void testLoginGoogle() throws Exception {
+        String url = "https://accounts.google.com/o/oauth2/auth?client_id=334650103063-k5oinc902jh7nsk2nd709va5bhh9961f.apps.googleusercontent.com&redirect_uri=http://localhost:8081/api/v1/auth/login/oauth2/code/google&scope=email%20profile&response_type=code";
+        when(authService.getGoogleLoginUrl()).thenReturn(url);
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/auth/loginGoogle"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(url));
+    }
+
+    @Test
+    void testHandleGoogleCallback() throws Exception {
+        String code = "testCode";
+        String accessToken = "testAccessToken";
+        when(authService.handleGoogleCallback(anyString())).thenReturn(accessToken);
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/auth/login/oauth2/code/google")
+                        .param("code", code))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Authentication successful! Access Token: " + accessToken));
     }
     private static String asJsonString(final Object obj) {
         try {
