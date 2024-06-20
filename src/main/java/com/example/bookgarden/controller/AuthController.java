@@ -2,8 +2,6 @@ package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
 import com.example.bookgarden.service.*;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -12,9 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -49,7 +45,7 @@ public class AuthController {
             }
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .message("Invalid input data")
                     .data(errorMessages)
                     .build());
         }
@@ -57,7 +53,7 @@ public class AuthController {
         if (!registerDTO.getPassWord().equals(registerDTO.getConfirmPassWord())) {
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Mật khẩu nhắc lại không khớp")
+                    .message("Passwords do not match")
                     .data(null)
                     .build());
         }
@@ -94,7 +90,7 @@ public class AuthController {
     @PostMapping("/send-forgot-password-otp")
     public ResponseEntity<GenericResponse> sendForgotPasswordOtp(@RequestBody OTPRequest otpRequest) {
         try {
-           otpService.sendForgotPasswordOtp(otpRequest.getEmail());
+            otpService.sendForgotPasswordOtp(otpRequest.getEmail());
             return ResponseEntity.ok()
                     .body(GenericResponse.builder()
                             .success(true)
@@ -139,7 +135,7 @@ public class AuthController {
             }
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .message("Invalid input data")
                     .data(errorMessages)
                     .build());
         }
@@ -148,7 +144,6 @@ public class AuthController {
         if (!response.isSuccess()) {
             return ResponseEntity.status(400).body(response);
         }
-
         return ResponseEntity.ok().body(response);
     }
 
@@ -161,7 +156,7 @@ public class AuthController {
                     .collect(Collectors.toList());
             return ResponseEntity.status(400).body(GenericResponse.builder()
                     .success(false)
-                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .message("Invalid input data")
                     .data(errorMessages)
                     .build());
         }
@@ -179,14 +174,15 @@ public class AuthController {
                                                   @RequestBody TokenRequestDTO tokenRequestDTO) {
         return authService.logout(authorizationHeader, tokenRequestDTO);
     }
+
     @PostMapping("/logout-all")
     public ResponseEntity<GenericResponse> logoutAll(@RequestHeader("Authorization") String authorizationHeader) {
         return authService.logoutAll(authorizationHeader);
     }
+
     @PostMapping("/refresh-token")
     public ResponseEntity<GenericResponse> refreshAccessToken(@RequestBody TokenRequestDTO tokenRequestDTO) {
         String refreshToken = tokenRequestDTO.getRefreshToken();
         return tokenService.refreshAccessToken(refreshToken);
     }
-
 }

@@ -1,13 +1,8 @@
 package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
-import com.example.bookgarden.entity.User;
-import com.example.bookgarden.repository.UserRepository;
-import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.service.AuthService;
 import com.example.bookgarden.service.OTPService;
-import com.example.bookgarden.service.TokenService;
-import com.example.bookgarden.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,15 +14,13 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.HashMap;
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -54,24 +47,6 @@ public class AuthControllerIntegrationTest {
 
     @MockBean
     private AuthService authService;
-
-    @MockBean
-    private UserService userService;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
-
-    @MockBean
-    private AuthenticationManager authenticationManager;
-
-    @MockBean
-    private TokenService tokenService;
-
-    @MockBean
-    private UserRepository userRepository;
-
-    @MockBean
-    private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void setUp() {

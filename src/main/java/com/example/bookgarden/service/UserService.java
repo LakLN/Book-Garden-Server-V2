@@ -36,27 +36,20 @@ public class UserService {
         this.userRepository = userRepository;
     }
     public Optional<User> findByEmail(String email) {return userRepository.findByEmail(email);}
+    @Transactional
     public ResponseEntity<GenericResponse> getProfile(String userId) {
         Optional<User> optionalUser = userRepository.findById(userId);
         if (optionalUser.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    GenericResponse.builder()
-                            .success(false)
-                            .message("Không tìm thấy người dùng")
-                            .data(null)
-                            .build()
-            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                    .success(false)
+                    .message("User not found")
+                    .data(null)
+                    .build());
         }
 
         User user = optionalUser.get();
         ModelMapper modelMapper = new ModelMapper();
-        List<Address> addresses = new ArrayList<>();
-        if (!user.getAddresses().isEmpty()) {
-            for (String addressId : user.getAddresses()) {
-                Optional<Address> optionalAddress = addressRepository.findById(addressId);
-                optionalAddress.ifPresent(addresses::add);
-            }
-        }
+        List<Address> addresses = getAddressList(user.getAddresses());
 
         UserDTO userResponse = modelMapper.map(user, UserDTO.class);
         userResponse.setAddresses(addresses);
@@ -64,10 +57,19 @@ public class UserService {
         return ResponseEntity.ok(
                 GenericResponse.builder()
                         .success(true)
-                        .message("Lấy thông tin profile người dùng thành công")
+                        .message("Successfully retrieved user profile")
                         .data(userResponse)
                         .build()
         );
+    }
+
+    public List<Address> getAddressList(List<String> addressIds) {
+        List<Address> addresses = new ArrayList<>();
+        for (String addressId : addressIds) {
+            Optional<Address> optionalAddress = addressRepository.findById(addressId);
+            optionalAddress.ifPresent(addresses::add);
+        }
+        return addresses;
     }
 
     public ResponseEntity<GenericResponse> changePassword(String userId, ChangePasswordRequestDTO changePasswordRequestDTO){
@@ -102,20 +104,21 @@ public class UserService {
         }
     }
 
-    public ResponseEntity<GenericResponse> updateProfile(String userId, UpdateProfileRequestDTO updateProfileRequestDTO, MultipartHttpServletRequest avatarRequest ){
+    public ResponseEntity<GenericResponse> updateProfile(String userId, UpdateProfileRequestDTO updateProfileRequestDTO, MultipartHttpServletRequest avatarRequest) {
         Optional<User> optionalUser = userRepository.findById(userId);
         if (optionalUser.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     GenericResponse.builder()
                             .success(false)
-                            .message("Không tìm thấy người dùng")
+                            .message("User not found")
                             .data(null)
                             .build()
             );
-        User user = optionalUser.get();
 
+        User user = optionalUser.get();
         ModelMapper modelMapper = new ModelMapper();
         modelMapper.map(updateProfileRequestDTO, user);
+
         MultipartFile avatar = avatarRequest.getFile("avatar");
         if (avatar != null && !avatar.isEmpty()) {
             try {
@@ -124,11 +127,12 @@ public class UserService {
             } catch (Exception e) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                         .success(false)
-                        .message("Lỗi upload ảnh")
+                        .message("Error uploading image")
                         .data(null)
                         .build());
             }
         }
+
         userRepository.save(user);
         List<Address> addresses = new ArrayList<>();
         for (String addressId : user.getAddresses()) {
@@ -138,14 +142,16 @@ public class UserService {
 
         UserDTO userResponse = modelMapper.map(user, UserDTO.class);
         userResponse.setAddresses(addresses);
+
         return ResponseEntity.ok(
                 GenericResponse.builder()
                         .success(true)
-                        .message("Cập nhật thông tin profile người dùng thành công")
+                        .message("User profile updated successfully")
                         .data(userResponse)
                         .build()
         );
     }
+
 
     public ResponseEntity<GenericResponse> updateAddresses(String userId, AddressesRequestDTO addressesRequestDTO) {
         Optional<User> optionalUser = userRepository.findById(userId);

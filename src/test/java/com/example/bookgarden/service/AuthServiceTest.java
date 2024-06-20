@@ -72,7 +72,7 @@ class AuthServiceTest {
 
         GenericResponse result = authService.registerUser(registerDTO);
 
-        assertEquals("Đăng ký thành công!", result.getMessage());
+        assertEquals("Registration successful!", result.getMessage());
 
         verify(userRepository, times(1)).save(any(User.class));
         verify(otpService, times(1)).sendRegisterOtp(registerDTO.getEmail());
@@ -116,7 +116,7 @@ class AuthServiceTest {
         GenericResponse response = authService.login(loginDTO);
 
         assertFalse(response.isSuccess());
-        assertEquals("Tài khoản không tồn tại", response.getMessage());
+        assertEquals("Account does not exist", response.getMessage());
     }
 
     @Test
@@ -131,7 +131,7 @@ class AuthServiceTest {
         GenericResponse response = authService.login(loginDTO);
 
         assertFalse(response.isSuccess());
-        assertEquals("Tài khoản chưa được xác thực", response.getMessage());
+        assertEquals("Account is not verified", response.getMessage());
     }
 
     @Test
@@ -147,6 +147,6 @@ class AuthServiceTest {
         GenericResponse response = authService.login(loginDTO);
 
         assertFalse(response.isSuccess());
-        assertEquals("Tài khoản đã bị vô hiệu hóa", response.getMessage());
+        assertEquals("Account has been disabled", response.getMessage());
     }
 }

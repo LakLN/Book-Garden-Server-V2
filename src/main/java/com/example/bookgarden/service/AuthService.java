@@ -62,7 +62,7 @@ public class AuthService {
         if (existingUser.isPresent()) {
             return GenericResponse.builder()
                     .success(false)
-                    .message("Email đã tồn tại trong hệ thống")
+                    .message("Email already exists in the system")
                     .data(null)
                     .build();
         }
@@ -79,7 +79,7 @@ public class AuthService {
 
         return GenericResponse.builder()
                 .success(true)
-                .message("Đăng ký thành công!")
+                .message("Registration successful!")
                 .data(null)
                 .build();
     }
@@ -87,7 +87,7 @@ public class AuthService {
         if (!forgotPasswordDTO.getPassWord().equals(forgotPasswordDTO.getConfirmPassWord())) {
             return GenericResponse.builder()
                     .success(false)
-                    .message("Mật khẩu nhắc lại không khớp")
+                    .message("Passwords do not match")
                     .data(null)
                     .build();
         }
@@ -96,7 +96,7 @@ public class AuthService {
         if (!existingUser.isPresent()) {
             return GenericResponse.builder()
                     .success(false)
-                    .message("Email không tồn tại trong hệ thống")
+                    .message("Email does not exist in the system")
                     .data(null)
                     .build();
         }
@@ -124,7 +124,7 @@ public class AuthService {
         if (!optionalUser.isPresent()) {
             return GenericResponse.builder()
                     .success(false)
-                    .message("Tài khoản không tồn tại")
+                    .message("Account does not exist")
                     .data(null)
                     .build();
         }
@@ -133,7 +133,7 @@ public class AuthService {
         if (!user.getIsVerified()) {
             return GenericResponse.builder()
                     .success(false)
-                    .message("Tài khoản chưa được xác thực")
+                    .message("Account is not verified")
                     .data(null)
                     .build();
         }
@@ -141,7 +141,7 @@ public class AuthService {
         if (!user.getIsActive()) {
             return GenericResponse.builder()
                     .success(false)
-                    .message("Tài khoản đã bị vô hiệu hóa")
+                    .message("Account has been disabled")
                     .data(null)
                     .build();
         }

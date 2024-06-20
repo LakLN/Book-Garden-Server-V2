@@ -40,9 +40,10 @@ public class UserController {
     @PostMapping("/profile/updateProfile")
     public ResponseEntity<?> updateProfile(@RequestHeader("Authorization") String authorizationHeader,
                                            @Valid @ModelAttribute UpdateProfileRequestDTO updateProfileRequestDTO,
-                                           MultipartHttpServletRequest avatarRequest, BindingResult bindingResult){
+                                           MultipartHttpServletRequest avatarRequest, BindingResult bindingResult) {
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
+
         if (bindingResult.hasErrors()) {
             List<ObjectError> errors = bindingResult.getAllErrors();
             List<String> errorMessages = new ArrayList<>();
@@ -52,12 +53,14 @@ public class UserController {
             }
             return ResponseEntity.status(400).body(GenericResponse.builder()
                     .success(false)
-                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .message("Invalid input data")
                     .data(errorMessages)
                     .build());
         }
+
         return userService.updateProfile(userId, updateProfileRequestDTO, avatarRequest);
     }
+
 
     //Change Password
     @PostMapping("/change-password")
