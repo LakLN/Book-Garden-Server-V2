@@ -30,7 +30,7 @@ public class AuthController {
         return new ModelAndView("redirect:" + authService.getGoogleLoginUrl());
     }
 
-    @GetMapping("/login/oauth2/code/google")
+    @GetMapping("/loginGoogle/oauth2/code/google")
     public ResponseEntity<GenericResponse> handleGoogleCallback(@RequestParam("code") String code) {
         GenericResponse response = authService.handleGoogleCallback(code);
         return ResponseEntity.status(response.isSuccess() ? HttpStatus.OK : HttpStatus.BAD_REQUEST).body(response);
