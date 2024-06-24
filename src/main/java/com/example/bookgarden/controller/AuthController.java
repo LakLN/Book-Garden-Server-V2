@@ -156,7 +156,7 @@ public class AuthController {
                     .collect(Collectors.toList());
             return ResponseEntity.status(400).body(GenericResponse.builder()
                     .success(false)
-                    .message("Invalid input data")
+                    .message("Dữ liệu đầu vào không hợp lệ!")
                     .data(errorMessages)
                     .build());
         }

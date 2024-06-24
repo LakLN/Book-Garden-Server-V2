@@ -42,7 +42,7 @@ public class UserService {
         if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                     .success(false)
-                    .message("User not found")
+                    .message("Không tìm thấy người dùng!")
                     .data(null)
                     .build());
         }
@@ -57,7 +57,7 @@ public class UserService {
         return ResponseEntity.ok(
                 GenericResponse.builder()
                         .success(true)
-                        .message("Successfully retrieved user profile")
+                        .message("Lấy thông tin người dùng thành công!")
                         .data(userResponse)
                         .build()
         );
@@ -72,37 +72,41 @@ public class UserService {
         return addresses;
     }
 
-    public ResponseEntity<GenericResponse> changePassword(String userId, ChangePasswordRequestDTO changePasswordRequestDTO){
+    public ResponseEntity<GenericResponse> changePassword(String userId, ChangePasswordRequestDTO changePasswordRequestDTO) {
         Optional<User> userOptional = userRepository.findById(userId);
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    GenericResponse.builder()
+                            .success(false)
+                            .message("Không tìm thấy người dùng")
+                            .data(null)
+                            .build()
+            );
+        }
+
+        User user = userOptional.get();
+        user.setPassWord(passwordEncoder.encode(changePasswordRequestDTO.getPassWord()));
+
         try {
-            if (userOptional.isPresent()){
-                User user = userOptional.get();
-                user.setPassWord(passwordEncoder.encode(changePasswordRequestDTO.getPassWord()));
-                userRepository.save(user);
-                return ResponseEntity.ok(
-                        GenericResponse.builder()
-                                .success(true)
-                                .message("Đổi mật khẩu thành công")
-                                .data(null)
-                                .build()
-                );
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                        GenericResponse.builder()
-                                .success(false)
-                                .message("Không tìm thấy người dùng")
-                                .data(null)
-                                .build()
-                );
-            }
-        } catch (Exception e){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Lỗi mật khẩu không thành công")
-                    .data(null)
-                    .build());
+            userRepository.save(user);
+            return ResponseEntity.ok(
+                    GenericResponse.builder()
+                            .success(true)
+                            .message("Đổi mật khẩu thành công")
+                            .data(null)
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    GenericResponse.builder()
+                            .success(false)
+                            .message("Lỗi khi đổi mật khẩu")
+                            .data(e.getMessage())
+                            .build()
+            );
         }
     }
+
 
     public ResponseEntity<GenericResponse> updateProfile(String userId, UpdateProfileRequestDTO updateProfileRequestDTO, MultipartHttpServletRequest avatarRequest) {
         Optional<User> optionalUser = userRepository.findById(userId);
@@ -169,27 +173,23 @@ public class UserService {
         List<Address> newAddresses = new ArrayList<>();
 
         for (String address : addressesRequestDTO.getAddresses()) {
-            Optional<Address> optionalExistingAddress = addressRepository.findByAddress(address);
-
-            if (optionalExistingAddress.isEmpty()) {
-                Address newAddress = new Address();
-                newAddress.setAddress(address);
-                addressRepository.save(newAddress);
-                newAddresses.add(newAddress);
-            } else {
-                Address existingAddress = optionalExistingAddress.get();
-                newAddresses.add(existingAddress);
-            }
+            Address addressEntity = addressRepository.findByAddress(address)
+                    .orElseGet(() -> {
+                        Address newAddress = new Address();
+                        newAddress.setAddress(address);
+                        return addressRepository.save(newAddress);
+                    });
+            newAddresses.add(addressEntity);
         }
 
         user.setAddresses(newAddresses.stream().map(Address::getId).collect(Collectors.toList()));
         User updatedUser = userRepository.save(user);
 
-        List<Address> addresses = new ArrayList<>();
-        for (String addressId : updatedUser.getAddresses()) {
-            Optional<Address> optionalAddress = addressRepository.findById(addressId);
-            optionalAddress.ifPresent(addresses::add);
-        }
+        List<Address> addresses = updatedUser.getAddresses().stream()
+                .map(addressId -> addressRepository.findById(addressId).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
         ModelMapper modelMapper = new ModelMapper();
         UserDTO userResponse = modelMapper.map(updatedUser, UserDTO.class);
         userResponse.setAddresses(addresses);
@@ -200,6 +200,7 @@ public class UserService {
                 .data(userResponse)
                 .build());
     }
+
 
     public ResponseEntity<GenericResponse> getAllUsers(String userId) {
         try {
