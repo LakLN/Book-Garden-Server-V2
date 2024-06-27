@@ -4,6 +4,8 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.example.bookgarden.dto.*;
 import com.example.bookgarden.entity.*;
+import com.example.bookgarden.exception.AccessDeniedException;
+import com.example.bookgarden.exception.NotFoundException;
 import com.example.bookgarden.repository.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.bson.types.ObjectId;
@@ -18,6 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
@@ -38,9 +41,9 @@ public class BookService {
     }
 
     @Autowired
-    CategoryRepository categoryRepository;
+    private CategoryRepository categoryRepository;
     @Autowired
-    AuthorRepository authorRepository;
+    private AuthorRepository authorRepository;
     @Autowired
     private UserRepository userRepository;
     @Autowired
@@ -49,45 +52,44 @@ public class BookService {
     private ReviewRepository reviewRepository;
     @Autowired
     private  ReviewService reviewService;
+    private void checkAdminPermission(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
+
+        if (!"Admin".equals(user.getRole())) {
+            throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
+        }
+    }
+    private void checkAdminAndManagerPermission(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
+
+        if (!("Admin".equals(user.getRole())||"Manager".equals((user.getRole())))) {
+            throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
+        }
+    }
     public ResponseEntity<GenericResponse> getAllBooks() {
         try {
             List<Book> books = bookRepository.findByIsDeletedFalse();
-
             List<BookDTO> bookDTOs = books.stream()
                     .map(this::convertToBookDTO)
                     .collect(Collectors.toList());
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
-                    .message("Lấy danh sách sách thành công")
+                    .message("Lấy danh sách sách thành công!")
                     .data(bookDTOs)
                     .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Lỗi lấy sách")
+                    .message("Lỗi khi lấy danh sách sách")
                     .data(e.getMessage())
                     .build());
         }
     }
     public ResponseEntity<GenericResponse> getAllDeletedBooks(String userId) {
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!"Admin".equals(optionalUser.get().getRole())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền lấy danh sách sách bị xóa")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
-
+            checkAdminPermission(userId);
             List<Book> books = bookRepository.findByIsDeletedTrue();
 
             List<BookDTO> bookDTOs = books.stream()
@@ -95,52 +97,17 @@ public class BookService {
                     .collect(Collectors.toList());
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
-                    .message("Lấy danh sách sách thành công")
+                    .message("Lấy danh sách sách bị xóa thành công!")
                     .data(bookDTOs)
                     .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Lỗi lấy sách")
+                    .message("Lỗi lấy danh sách sách bị xóa!")
                     .data(e.getMessage())
                     .build());
         }
     }
-    public ResponseEntity<GenericResponse> deleteDeletedBooks(String userId) {
-        try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!"Admin".equals(optionalUser.get().getRole())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền lấy danh sách sách bị xóa")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
-
-            long deletedCount = bookRepository.deleteByIsDeletedTrue();
-
-            return ResponseEntity.ok(GenericResponse.builder()
-                    .success(true)
-                    .message("Đã xóa " + deletedCount + " sách")
-                    .data(null)
-                    .build());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Lỗi khi xóa sách")
-                    .data(e.getMessage())
-                    .build());
-        }
-    }
-
     public ResponseEntity<GenericResponse> getBookById (String bookId){
         try {
             Optional<Book> optionalBook = bookRepository.findById(new ObjectId(bookId));
@@ -150,33 +117,40 @@ public class BookService {
                 BookDetailDTO bookDetailDTO = convertToBookDetailDTO(book);
                 return ResponseEntity.ok(GenericResponse.builder()
                         .success(true)
-                        .message("Lấy chi tiết sách thành công")
+                        .message("Lấy chi tiết sách thành công!")
                         .data(bookDetailDTO)
                         .build());
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                         .success(false)
-                        .message("Không tìm thấy sách ")
+                        .message("Không tìm thấy sách!")
                         .data(null)
                         .build());
             }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Không tìm thấy sách!")
+                    .data(null)
+                    .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Lỗi khi lấy chi tiết sách")
+                    .message("Lỗi khi lấy chi tiết sách!")
                     .data(e.getMessage())
                     .build());
         }
     }
+    @Cacheable("relatedBooksCache")
     public ResponseEntity<GenericResponse> getRelatedBooks(String bookId) {
         try {
             Optional<Book> optionalBook = bookRepository.findById(new ObjectId(bookId));
 
             if (optionalBook.isPresent()) {
-                Book book = optionalBook.get();
+                Book bookEntity = optionalBook.get();
 
-                List<Book> relatedBooks = findRelatedBooks(book.getAuthors(), book.getCategories());
-
+                List<Book> relatedBooks = findRelatedBooks(bookEntity.getAuthors(), bookEntity.getCategories());
+                relatedBooks.removeIf(b -> b.getId().equals(bookEntity.getId()));
                 List<BookDTO> relatedBookDTOs = relatedBooks.stream()
                         .map(this::convertToBookDTO)
                         .collect(Collectors.toList());
@@ -189,9 +163,14 @@ public class BookService {
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                         .success(false)
-                        .message("Không tìm thấy sách ")
+                        .message("Không tìm thấy sách")
                         .build());
             }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Không tìm thấy sách")
+                    .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
@@ -200,7 +179,7 @@ public class BookService {
                     .build());
         }
     }
-
+    @Cacheable("bestSellerBooksCache")
     public ResponseEntity<GenericResponse> getBestSellerBooks() {
         try {
             List<Book> books = bookRepository.findTop10BySoldQuantityIsNotNullOrderBySoldQuantityDesc();
@@ -211,43 +190,37 @@ public class BookService {
 
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
-                    .message("Lấy danh sách sách bán chạy")
+                    .message("Lấy danh sách sách bán chạy thành công!")
                     .data(bookDTOs)
                     .build());
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Lỗi khi lấy danh sách sách sách bán chạy")
+                    .message("Lỗi khi lấy danh sách sách bán chạy!")
                     .data(e.getMessage())
                     .build());
         }
     }
     public ResponseEntity<GenericResponse> addBook(String userId, AddBookRequestDTO addBookRequestDTO, MultipartHttpServletRequest imageRequest){
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!("Admin".equals(optionalUser.get().getRole()) || "Manager".equals(optionalUser.get().getRole()))) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền cập nhật sách")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+            checkAdminAndManagerPermission(userId);
+
+            Optional<BookDetail> existingBookDetail = bookDetailRepository.findByIsbn(addBookRequestDTO.getIsbn());
+            if (existingBookDetail.isPresent()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(GenericResponse.builder()
                         .success(false)
-                        .message("Người dùng không tồn tại")
+                        .message("Sách với ISBN đã tồn tại")
                         .data(null)
                         .build());
             }
 
             Book book = new Book();
+            ModelMapper modelMapper = new ModelMapper();
+            modelMapper.map(addBookRequestDTO, book);
+
             BookDetail bookDetail = new BookDetail();
-            bookDetail.setBook(book.getId());
-            bookDetail.setPageNumbers(Integer.parseInt(addBookRequestDTO.getPageNumbers()));
-            book.setStock(Integer.parseInt(addBookRequestDTO.getStock()));
-            book.setPrice(Double.parseDouble(addBookRequestDTO.getPrice()));
+            modelMapper.map(addBookRequestDTO, bookDetail);
             MultipartFile image = imageRequest.getFile("image");
             if (image != null && !image.isEmpty()) {
                 try {
@@ -261,51 +234,16 @@ public class BookService {
                             .build());
                 }
             }
-            ModelMapper modelMapper = new ModelMapper();
-            book = modelMapper.map(addBookRequestDTO, Book.class);
-            bookDetail = modelMapper.map(addBookRequestDTO, BookDetail.class);
-            final Book finalBook = book;
 
-            String updateCategoryies = addBookRequestDTO.getCategories();
-            updateCategoryies = StringEscapeUtils.unescapeHtml4(updateCategoryies);
-            updateCategoryies = StringEscapeUtils.unescapeXml(updateCategoryies);
-            updateCategoryies = updateCategoryies.replaceAll("\\[|\\]", "");
+            List<Category> bookCategories = getCategoriesFromString(addBookRequestDTO.getCategories(), book);
+            List<Author> bookAuthors = getAuthorsFromString(addBookRequestDTO.getAuthors(), book);
 
-            String[] categoryArray = updateCategoryies.split(", ");
-            List<String> categoryList = Arrays.stream(categoryArray)
-                    .map(String::trim)
-                    .map(category -> category.replaceAll("&amp;#34;", "\""))
-                    .collect(Collectors.toList());
-
-            List<Category> bookCategories = Arrays.stream(updateCategoryies.split(","))
-                    .map(String::trim)
-                    .map(categoryName -> StringEscapeUtils.unescapeHtml4(categoryName))
-                    .map(categoryName -> StringEscapeUtils.unescapeXml(categoryName))
-                    .map(categoryName -> categoryName.replaceAll("\"", ""))
-                    .map(categoryName -> findOrCreateCategory(categoryName, finalBook))
-                    .collect(Collectors.toList());
-
-            String updateAuthors = addBookRequestDTO.getAuthors();
-
-            updateAuthors = StringEscapeUtils.unescapeHtml4(updateAuthors);
-            updateAuthors = StringEscapeUtils.unescapeXml(updateAuthors);
-            updateAuthors = updateAuthors.replaceAll("\\[|\\]", "");
-            List<String> authorList = Arrays.stream(categoryArray)
-                    .map(String::trim)
-                    .map(category -> category.replaceAll("&amp;#34;", "\""))
-                    .collect(Collectors.toList());
-            List<Author> bookAuthors = Arrays.stream(updateAuthors.split(","))
-                    .map(String::trim)
-                    .map(authorName -> StringEscapeUtils.unescapeHtml4(authorName))
-                    .map(authorName -> StringEscapeUtils.unescapeXml(authorName))
-                    .map(authorName -> authorName.replaceAll("\"", ""))
-                    .map(authorName -> findOrCreateAuthor(authorName, finalBook))
-                    .collect(Collectors.toList());
             book.setCategories(bookCategories.stream().map(Category::getId).collect(Collectors.toList()));
             book.setAuthors(bookAuthors.stream().map(Author::getId).collect(Collectors.toList()));
-            Book newBook = bookRepository.save(book);
-            bookDetailRepository.save(bookDetail);
 
+            Book newBook = bookRepository.save(book);
+            bookDetail.setBook(book.getId());
+            bookDetailRepository.save(bookDetail);
             BookDetailDTO bookDetailDTO = convertToBookDetailDTO(newBook);
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
@@ -314,53 +252,61 @@ public class BookService {
                     .build());
 
         } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Lỗi khi thêm sách")
-                        .data(e.getMessage())
-                        .build());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi thêm sách")
+                    .data(e.getMessage())
+                    .build());
         }
     }
-    public ResponseEntity<GenericResponse> updateBook(String userId, String bookId, UpdateBookRequestDTO updateBookRequestDTO, MultipartHttpServletRequest imageRequest){
+    private List<Category> getCategoriesFromString(String categoriesStr, Book book) {
+        String[] categoryArray = categoriesStr.replaceAll("[\\[\\]]", "").split(",");
+        return Arrays.stream(categoryArray)
+                .map(String::trim)
+                .map(categoryName -> StringEscapeUtils.unescapeHtml4(categoryName))
+                .map(categoryName -> StringEscapeUtils.unescapeXml(categoryName))
+                .map(categoryName -> categoryName.replaceAll("\"", ""))
+                .map(categoryName -> findOrCreateCategory(categoryName, book))
+                .collect(Collectors.toList());
+    }
+    private List<Author> getAuthorsFromString(String authorsStr, Book book) {
+        String[] authorArray = authorsStr.replaceAll("[\\[\\]]", "").split(",");
+        return Arrays.stream(authorArray)
+                .map(String::trim)
+                .map(authorName -> StringEscapeUtils.unescapeHtml4(authorName))
+                .map(authorName -> StringEscapeUtils.unescapeXml(authorName))
+                .map(authorName -> authorName.replaceAll("\"", ""))
+                .map(authorName -> findOrCreateAuthor(authorName, book))
+                .collect(Collectors.toList());
+    }
+    public ResponseEntity<GenericResponse> updateBook(String userId, String bookId, UpdateBookRequestDTO updateBookRequestDTO, MultipartHttpServletRequest imageRequest) {
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!("Admin".equals(optionalUser.get().getRole()) || "Manager".equals(optionalUser.get().getRole()))) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền cập nhật sách")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
+            checkAdminAndManagerPermission(userId);
+
             Optional<Book> optionalBook = bookRepository.findById(new ObjectId(bookId));
-            if (!optionalBook.isPresent()){
+            if (!optionalBook.isPresent()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                         .success(false)
                         .message("Không tìm thấy sách")
                         .data(null)
                         .build());
             }
+
             Book book = optionalBook.get();
             Optional<BookDetail> optionalBookDetail = bookDetailRepository.findByBook(book.getId());
-            if (!optionalBookDetail.isPresent()){
+            if (!optionalBookDetail.isPresent()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                         .success(false)
                         .message("Không tìm thấy chi tiết sách")
                         .data(null)
                         .build());
             }
-            BookDetail bookDetail = optionalBookDetail.get();
 
-            bookDetail.setPageNumbers(Integer.parseInt(updateBookRequestDTO.getPageNumbers()));
-            book.setStock(Integer.parseInt(updateBookRequestDTO.getStock()));
-            book.setPrice(Double.parseDouble(updateBookRequestDTO.getPrice()));
+            BookDetail bookDetail = optionalBookDetail.get();
+            ModelMapper modelMapper = new ModelMapper();
+            modelMapper.map(updateBookRequestDTO, book);
+            modelMapper.map(updateBookRequestDTO, bookDetail);
+
             MultipartFile image = imageRequest.getFile("image");
             if (image != null && !image.isEmpty()) {
                 try {
@@ -374,60 +320,24 @@ public class BookService {
                             .build());
                 }
             }
-            ModelMapper modelMapper = new ModelMapper();
-            modelMapper.map(updateBookRequestDTO, book);
-            final Book finalBook = book;
 
-            String updateCategoryies = updateBookRequestDTO.getCategories();
-            updateCategoryies = StringEscapeUtils.unescapeHtml4(updateCategoryies);
-            updateCategoryies = StringEscapeUtils.unescapeXml(updateCategoryies);
-            updateCategoryies = updateCategoryies.replaceAll("\\[|\\]", "");
+            List<Category> bookCategories = getCategoriesFromString(updateBookRequestDTO.getCategories(), book);
+            List<Author> bookAuthors = getAuthorsFromString(updateBookRequestDTO.getAuthors(), book);
 
-            String[] categoryArray = updateCategoryies.split(", ");
-            List<String> categoryList = Arrays.stream(categoryArray)
-                    .map(String::trim)
-                    .map(category -> category.replaceAll("&amp;#34;", "\""))
-                    .collect(Collectors.toList());
-
-            List<Category> bookCategories = Arrays.stream(updateCategoryies.split(","))
-                    .map(String::trim)
-                    .map(categoryName -> StringEscapeUtils.unescapeHtml4(categoryName))
-                    .map(categoryName -> StringEscapeUtils.unescapeXml(categoryName))
-                    .map(categoryName -> categoryName.replaceAll("\"", ""))
-                    .map(categoryName -> findOrCreateCategory(categoryName, finalBook))
-                    .collect(Collectors.toList());
-            List<ObjectId> categoryIds = book.getCategories();
-
-            for (ObjectId categoryId : categoryIds) {
-                Optional<Category> optionalCategory = categoryRepository.findById(categoryId);
-                if (optionalCategory.isPresent()) {
-                    Category category = optionalCategory.get();
-                    List<ObjectId> cateBooks = category.getBooks();
-                    cateBooks.remove(book.getId());
-                    category.setBooks(cateBooks);
+            // Xóa sách khỏi các danh mục hiện tại
+            for (ObjectId categoryId : book.getCategories()) {
+                categoryRepository.findById(categoryId).ifPresent(category -> {
+                    category.getBooks().remove(book.getId());
                     categoryRepository.save(category);
-                }
+                });
             }
-            String updateAuthors = updateBookRequestDTO.getAuthors();
 
-            updateAuthors = StringEscapeUtils.unescapeHtml4(updateAuthors);
-            updateAuthors = StringEscapeUtils.unescapeXml(updateAuthors);
-            updateAuthors = updateAuthors.replaceAll("\\[|\\]", "");
-            List<String> authorList = Arrays.stream(categoryArray)
-                    .map(String::trim)
-                    .map(category -> category.replaceAll("&amp;#34;", "\""))
-                    .collect(Collectors.toList());
-            List<Author> bookAuthors = Arrays.stream(updateAuthors.split(","))
-                    .map(String::trim)
-                    .map(authorName -> StringEscapeUtils.unescapeHtml4(authorName))
-                    .map(authorName -> StringEscapeUtils.unescapeXml(authorName))
-                    .map(authorName -> authorName.replaceAll("\"", ""))
-                    .map(authorName -> findOrCreateAuthor(authorName, finalBook))
-                    .collect(Collectors.toList());
             book.setCategories(bookCategories.stream().map(Category::getId).collect(Collectors.toList()));
             book.setAuthors(bookAuthors.stream().map(Author::getId).collect(Collectors.toList()));
-            book = bookRepository.save(book);
+
+            bookRepository.save(book);
             bookDetailRepository.save(bookDetail);
+
             BookDetailDTO bookDetailDTO = convertToBookDetailDTO(book);
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
@@ -435,7 +345,6 @@ public class BookService {
                     .data(bookDetailDTO)
                     .build());
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
                     .message("Lỗi khi cập nhật sách")
@@ -443,25 +352,9 @@ public class BookService {
                     .build());
         }
     }
-
     public ResponseEntity<GenericResponse> deleteBook(String userId, String bookId) {
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!("Admin".equals(optionalUser.get().getRole()))) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền cập nhật sách")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
+            checkAdminPermission(userId);
 
             Optional<Book> optionalBook = bookRepository.findById(new ObjectId(bookId));
             if (optionalBook.isPresent()) {
@@ -488,7 +381,44 @@ public class BookService {
                     .data(e.getMessage())
                     .build());
         }
+    }public ResponseEntity<GenericResponse> restoreBook(String userId, String bookId) {
+        try {
+            checkAdminPermission(userId);
+
+            Optional<Book> optionalBook = bookRepository.findById(new ObjectId(bookId));
+            if (optionalBook.isPresent()) {
+                Book book = optionalBook.get();
+                if (!book.isDeleted()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                            .success(false)
+                            .message("Sách chưa bị xóa")
+                            .data(null)
+                            .build());
+                }
+                book.setDeleted(false);
+                bookRepository.save(book);
+
+                return ResponseEntity.ok(GenericResponse.builder()
+                        .success(true)
+                        .message("Khôi phục sách thành công")
+                        .data(null)
+                        .build());
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy sách")
+                        .data(null)
+                        .build());
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi khôi phục sách")
+                    .data(e.getMessage())
+                    .build());
+        }
     }
+
 
     public ResponseEntity<GenericResponse> reviewBook(String userId, String bookId, ReviewBookRequestDTO reviewBookRequestDTO) {
         try {
@@ -534,10 +464,17 @@ public class BookService {
         }
     }
     private List<Book> findRelatedBooks(List<ObjectId> authorIds, List<ObjectId> categoryIds) {
-        return bookRepository.findRelatedBooksByAuthorsAndCategories(authorIds, categoryIds);
+        Set<Book> relatedBooks = new LinkedHashSet<>(bookRepository.findRelatedBooksByAuthorsAndCategories(authorIds, categoryIds));
+        relatedBooks.addAll(bookRepository.findRelatedBooksByAuthors(authorIds));
+        relatedBooks.addAll(bookRepository.findRelatedBooksByCategories(categoryIds));
+        return new ArrayList<>(relatedBooks);
     }
+
     @Cacheable("bookDTOCache")
     public BookDTO convertToBookDTO(Book book) {
+        if (book == null) {
+            throw new IllegalArgumentException("Book cannot be null");
+        }
 
         ModelMapper modelMapper = new ModelMapper();
         BookDTO bookDTO = modelMapper.map(book, BookDTO.class);
@@ -552,52 +489,83 @@ public class BookService {
         });
 
         List<ObjectId> categoryIds = book.getCategories();
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            List<Category> categories = categoryRepository.findAllByIdIn(categoryIds);
+            List<CategoryDTO> categoryDTOs = categories.stream()
+                    .map(category -> modelMapper.map(category, CategoryDTO.class))
+                    .collect(Collectors.toList());
+            bookDTO.setCategories(categoryDTOs);
+        } else {
+            bookDTO.setCategories(Collections.emptyList());
+        }
+
         List<ObjectId> authorIds = book.getAuthors();
-
-        List<Category> categories = categoryRepository.findAllByIdIn(categoryIds);
-        List<Author> authors = authorRepository.findAllByIdIn(authorIds);
-
-        List<CategoryDTO> categoryDTOs = categories.stream()
-                .map(category -> modelMapper.map(category, CategoryDTO.class))
-                .collect(Collectors.toList());
-        bookDTO.setCategories(categoryDTOs);
-
-        List<AuthorDTO> authorDTOs = authors.stream()
-                .map(author -> modelMapper.map(author, AuthorDTO.class))
-                .collect(Collectors.toList());
-        bookDTO.setAuthors(authorDTOs);
-
+        if (authorIds != null && !authorIds.isEmpty()) {
+            List<Author> authors = authorRepository.findAllByIdIn(authorIds);
+            List<AuthorDTO> authorDTOs = authors.stream()
+                    .map(author -> modelMapper.map(author, AuthorDTO.class))
+                    .collect(Collectors.toList());
+            bookDTO.setAuthors(authorDTOs);
+        } else {
+            bookDTO.setAuthors(Collections.emptyList());
+        }
         return bookDTO;
     }
+
     @Cacheable("bookDetailDTOCache")
     public BookDetailDTO convertToBookDetailDTO(Book book) {
+        if (book == null) {
+            throw new IllegalArgumentException("Book cannot be null");
+        }
+
         ModelMapper modelMapper = new ModelMapper();
         BookDetailDTO bookDetailDTO = modelMapper.map(book, BookDetailDTO.class);
         bookDetailDTO.set_id(book.getId().toString());
-        bookDetailRepository.findByBook(book.getId())
-                .ifPresent(bookDetail -> modelMapper.map(bookDetail, bookDetailDTO));
 
-        List<Category> categories = categoryRepository.findAllByIdIn(book.getCategories());
-        List<Author> authors = authorRepository.findAllByIdIn(book.getAuthors());
-        List<Review> reviews = reviewService.findReviewsByIds(book.getReviews());
+        Optional<BookDetail> bookDetailOptional = bookDetailRepository.findByBook(book.getId());
+        bookDetailOptional.ifPresent(bookDetail -> {
+            bookDetailDTO.setDescription(bookDetail.getDescription());
+            bookDetailDTO.setIsbn(bookDetail.getIsbn());
+            bookDetailDTO.setImage(bookDetail.getImage());
+            bookDetailDTO.setPublisher(bookDetail.getPublisher());
+        });
 
-        List<CategoryDTO> categoryDTOs = categories.stream()
-                .map(category -> modelMapper.map(category, CategoryDTO.class))
-                .collect(Collectors.toList());
-        bookDetailDTO.setCategories(categoryDTOs);
+        List<ObjectId> categoryIds = book.getCategories();
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            List<Category> categories = categoryRepository.findAllByIdIn(categoryIds);
+            List<CategoryDTO> categoryDTOs = categories.stream()
+                    .map(category -> modelMapper.map(category, CategoryDTO.class))
+                    .collect(Collectors.toList());
+            bookDetailDTO.setCategories(categoryDTOs);
+        } else {
+            bookDetailDTO.setCategories(Collections.emptyList());
+        }
 
-        List<AuthorDTO> authorDTOs = authors.stream()
-                .map(author -> modelMapper.map(author, AuthorDTO.class))
-                .collect(Collectors.toList());
-        bookDetailDTO.setAuthors(authorDTOs);
+        List<ObjectId> authorIds = book.getAuthors();
+        if (authorIds != null && !authorIds.isEmpty()) {
+            List<Author> authors = authorRepository.findAllByIdIn(authorIds);
+            List<AuthorDTO> authorDTOs = authors.stream()
+                    .map(author -> modelMapper.map(author, AuthorDTO.class))
+                    .collect(Collectors.toList());
+            bookDetailDTO.setAuthors(authorDTOs);
+        } else {
+            bookDetailDTO.setAuthors(Collections.emptyList());
+        }
 
-        List<ReviewDTO> reviewDTOS = reviews.stream()
-                .map(review -> convertReviewToDTO(review))
-                .collect(Collectors.toList());
-        bookDetailDTO.setReviews(reviewDTOS);
+        List<ObjectId> reviewIds = book.getReviews();
+        if (reviewIds != null && !reviewIds.isEmpty()) {
+            List<Review> reviews = reviewRepository.findAllByIdIn(reviewIds);
+            List<ReviewDTO> reviewDTOs = reviews.stream()
+                    .map(this::convertReviewToDTO)
+                    .collect(Collectors.toList());
+            bookDetailDTO.setReviews(reviewDTOs);
+        } else {
+            bookDetailDTO.setReviews(Collections.emptyList());
+        }
 
         return bookDetailDTO;
     }
+
 
     private ReviewDTO convertReviewToDTO(Review review){
         ModelMapper modelMapper = new ModelMapper();

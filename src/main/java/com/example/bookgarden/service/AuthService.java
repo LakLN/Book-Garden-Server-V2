@@ -83,6 +83,7 @@ public class AuthService {
                 .data(null)
                 .build();
     }
+
     public GenericResponse forgotPassword(ForgotPasswordDTO forgotPasswordDTO) {
         if (!forgotPasswordDTO.getPassWord().equals(forgotPasswordDTO.getConfirmPassWord())) {
             return GenericResponse.builder()
@@ -168,6 +169,7 @@ public class AuthService {
                 .data(tokenMap)
                 .build();
     }
+
     public String getGoogleLoginUrl() {
         return "https://accounts.google.com/o/oauth2/auth?client_id=" + clientId +
                 "&redirect_uri=" + redirectUri + "&scope=email%20profile&response_type=code";
@@ -179,16 +181,14 @@ public class AuthService {
 
         Optional<User> existingUser = userRepository.findByEmail(googleUserInfo.getEmail());
         if (existingUser.isPresent()) {
-            // User exists, generate tokens and login
             User user = existingUser.get();
             return loginUser(user);
         } else {
-            // User doesn't exist, create a new user
             User newUser = new User();
             newUser.setEmail(googleUserInfo.getEmail());
             newUser.setFullName(googleUserInfo.getName());
             newUser.setAvatar(googleUserInfo.getPicture());
-            newUser.setIsVerified(true); // Assuming Google users are verified by default
+            newUser.setIsVerified(true);
             newUser.setIsActive(true);
             newUser.setRole(roleService.findByRoleName("Customer").getRoleName());
 
@@ -208,7 +208,7 @@ public class AuthService {
 
         return GenericResponse.builder()
                 .success(true)
-                .message("Login successfully!")
+                .message("Đăng nhập thành công!")
                 .data(tokenMap)
                 .build();
     }
@@ -263,8 +263,8 @@ public class AuthService {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(GenericResponse.builder()
                         .success(false)
-                        .message("Logout failed!")
-                        .data("Please login before logout!")
+                        .message("Đăng xuất thất bại!")
+                        .data("Vui lòng đăng nhập trước khi thực hiện!")
                         .build());
     }
     public ResponseEntity<GenericResponse> logoutAll(String authorizationHeader) {
@@ -276,8 +276,8 @@ public class AuthService {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(GenericResponse.builder()
                         .success(false)
-                        .message("Logout failed!")
-                        .data("Invalid access token!")
+                        .message("Đăng xuất thất bại!")
+                        .data("Access token không chính xác!")
                         .build());
     }
 }

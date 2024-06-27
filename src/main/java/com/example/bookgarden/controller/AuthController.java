@@ -45,7 +45,7 @@ public class AuthController {
             }
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Invalid input data")
+                    .message("Dữ liệu đầu vào không hợp lệ!")
                     .data(errorMessages)
                     .build());
         }
@@ -53,7 +53,7 @@ public class AuthController {
         if (!registerDTO.getPassWord().equals(registerDTO.getConfirmPassWord())) {
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Passwords do not match")
+                    .message("Mật khẩu không khớp")
                     .data(null)
                     .build());
         }
@@ -73,7 +73,7 @@ public class AuthController {
             return ResponseEntity.ok()
                     .body(GenericResponse.builder()
                             .success(true)
-                            .message("OTP sent successfully!")
+                            .message("Gửi mã OTP thành công!")
                             .data(null)
                             .build());
         } catch (Exception e) {
@@ -81,7 +81,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(GenericResponse.builder()
                             .success(false)
-                            .message("An error occurred while sending OTP.")
+                            .message("Có lỗi trong khi gửi mã OTP.")
                             .data(null)
                             .build());
         }
@@ -94,7 +94,7 @@ public class AuthController {
             return ResponseEntity.ok()
                     .body(GenericResponse.builder()
                             .success(true)
-                            .message("OTP sent successfully!")
+                            .message("Gửi mã OTP thành công!")
                             .data(null)
                             .build());
         } catch (Exception e) {
@@ -102,7 +102,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(GenericResponse.builder()
                             .success(false)
-                            .message("An error occurred while sending OTP.")
+                            .message("Có lỗi trong khi gửi mã OTP.")
                             .data(null)
                             .build());
         }
@@ -114,13 +114,13 @@ public class AuthController {
         if (isOtpVerified) {
             return ResponseEntity.ok().body(GenericResponse.builder()
                     .success(true)
-                    .message("OTP verified successfully!")
+                    .message("Xác thực mã OTP thành công!")
                     .data(null)
                     .build());
         } else {
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Invalid OTP or expired.")
+                    .message("Mã OTP không chính xác hoặc đã hết hạn!")
                     .data(null)
                     .build());
         }
@@ -135,7 +135,7 @@ public class AuthController {
             }
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)
-                    .message("Invalid input data")
+                    .message("Dữ liệu đầu vào không hợp lệ!")
                     .data(errorMessages)
                     .build());
         }
@@ -174,7 +174,6 @@ public class AuthController {
                                                   @RequestBody TokenRequestDTO tokenRequestDTO) {
         return authService.logout(authorizationHeader, tokenRequestDTO);
     }
-
     @PostMapping("/logout-all")
     public ResponseEntity<GenericResponse> logoutAll(@RequestHeader("Authorization") String authorizationHeader) {
         return authService.logoutAll(authorizationHeader);

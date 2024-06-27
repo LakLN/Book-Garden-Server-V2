@@ -18,11 +18,5 @@ public class ReviewService {
     public ReviewService(ReviewRepository reviewRepository) {
         this.reviewRepository = reviewRepository;
     }
-    Cache cache;
-    public List<Review> findReviewsByIds(List<ObjectId> reviewIds) {
-        List<Review> reviews = cache.get("reviews:" + reviewIds, () -> {
-            return reviewRepository.findAllByIdIn(reviewIds);
-        });
-        return reviews;
-    }
+
 }

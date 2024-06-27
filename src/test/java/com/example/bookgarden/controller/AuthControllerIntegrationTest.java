@@ -65,7 +65,7 @@ public class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(asJsonString(otpRequest)))
                 .andExpect(status().isOk())
-                .andExpect(content().json("{\"success\":true,\"message\":\"OTP sent successfully!\",\"data\":null}"));
+                .andExpect(content().json("{\"success\":true,\"message\":\"Gửi mã OTP thành công!\",\"data\":null}"));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(asJsonString(verifyOtpRequest)))
                 .andExpect(status().isOk())
-                .andExpect(content().json("{\"success\":true,\"message\":\"OTP verified successfully!\",\"data\":null}"));
+                .andExpect(content().json("{\"success\":true,\"message\":\"Xác thực mã OTP thành công!\",\"data\":null}"));
     }
 
     @Test

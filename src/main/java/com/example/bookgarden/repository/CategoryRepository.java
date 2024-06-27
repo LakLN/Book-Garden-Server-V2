@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface CategoryRepository extends MongoRepository<Category, String> {
     Optional<Category> findById(ObjectId objectId);
     Optional<Category> findByCategoryName(String categoryName);
+
     @Cacheable("categories")
-    List<Category> findAllByIdIn(List<ObjectId> categoryIds);
+    List<Category> findAllByIdIn(List<ObjectId> ids);
 }

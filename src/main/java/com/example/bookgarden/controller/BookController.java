@@ -41,17 +41,10 @@ public class BookController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return bookService.getAllDeletedBooks(userId);
     }
-    @DeleteMapping("/deleted")
-    public ResponseEntity<?> removeDeletedBooks (@RequestHeader("Authorization") String authorizationHeader){
-        String token = authorizationHeader.substring(7);
-        String userId = jwtTokenProvider.getUserIdFromJwt(token);
-        return bookService.deleteDeletedBooks(userId);
-    }
 
     // Get one book
     @GetMapping("/{bookId}")
     public ResponseEntity<?> getBookDetailById(@PathVariable String bookId) {
-
         return bookService.getBookById(bookId);
     }
 
@@ -61,6 +54,7 @@ public class BookController {
         return bookService.getRelatedBooks(bookId);
     }
 
+    // Get Best seller books
     @GetMapping("/best-seller")
     public ResponseEntity<GenericResponse> getBestSellerBooks(){
         return bookService.getBestSellerBooks();
@@ -108,13 +102,19 @@ public class BookController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return bookService.updateBook(userId, bookId, updateBookRequestDTO, imageRequest);
     }
-
     //Delete Book
     @DeleteMapping("/{bookId}")
     public ResponseEntity<GenericResponse> deteleBook(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String bookId){
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return bookService.deleteBook(userId, bookId);
+    }
+    // Restore book
+    @PutMapping("/{bookId}/restore")
+    public ResponseEntity<GenericResponse> restoreBook(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String bookId) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return bookService.restoreBook(userId, bookId);
     }
 
     //Add to cart

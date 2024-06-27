@@ -11,5 +11,5 @@ import java.util.Optional;
 @Repository
 public interface WishListRepository extends MongoRepository<WishList, ObjectId> {
     Optional<WishList> findById (ObjectId objectId);
-    Optional<WishList> findByUser (ObjectId objectId);
+    Optional<WishList> findByUser(ObjectId objectId);
 }

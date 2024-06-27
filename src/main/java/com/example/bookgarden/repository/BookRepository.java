@@ -12,9 +12,15 @@ import java.util.List;
 public interface BookRepository extends MongoRepository<Book, ObjectId> {
     List<Book> findByIsDeletedFalse();
     List<Book> findByIsDeletedTrue();
-    long deleteByIsDeletedTrue();
-    @Query("{'$or' : [{'authors' : { '$in' : ?0 }}, {'categories' : { '$in' : ?1 }}]}")
+    @Query("{ '$and' : [{ 'authors' : { '$in' : ?0 }}, { 'categories' : { '$in' : ?1 }}] }")
     List<Book> findRelatedBooksByAuthorsAndCategories(List<ObjectId> authorIds, List<ObjectId> categoryIds);
+
+    @Query("{ 'authors' : { '$in' : ?0 } }")
+    List<Book> findRelatedBooksByAuthors(List<ObjectId> authorIds);
+
+    @Query("{ 'categories' : { '$in' : ?0 } }")
+    List<Book> findRelatedBooksByCategories(List<ObjectId> categoryIds);
     List<Book> findByIdIn(List<ObjectId> objectIds);
     List<Book> findTop10BySoldQuantityIsNotNullOrderBySoldQuantityDesc();
+
 }

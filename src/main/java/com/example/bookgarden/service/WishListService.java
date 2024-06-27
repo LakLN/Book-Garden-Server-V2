@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -41,18 +42,35 @@ public class WishListService {
                         .data(null)
                         .build());
             }
-            Optional<WishList> optionalWishList = getOrCreateWishList(userId);
-            if (optionalWishList.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+
+            ObjectId bookObjectId;
+            try {
+                bookObjectId = new ObjectId(bookId);
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
                         .success(false)
-                        .message("Lỗi khi truy cập danh sách mong muốn của người dùng")
+                        .message("Book ID không hợp lệ")
                         .data(null)
                         .build());
             }
 
-            WishList wishList = optionalWishList.get();
+            Optional<Book> optionalBook = bookRepository.findById(bookObjectId);
+            if (optionalBook.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy sách")
+                        .data(null)
+                        .build());
+            }
 
-            if (wishList.getBooks().contains(new ObjectId(bookId))) {
+            WishList wishList = wishListRepository.findByUser(new ObjectId(userId))
+                    .orElseGet(() -> {
+                        WishList newWishList = new WishList();
+                        newWishList.setUser(new ObjectId(userId));
+                        return wishListRepository.save(newWishList);
+                    });
+
+            if (wishList.getBooks().contains(bookObjectId)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
                         .success(false)
                         .message("Sách đã tồn tại trong danh sách yêu thích")
@@ -60,15 +78,15 @@ public class WishListService {
                         .build());
             }
 
-            wishList.getBooks().add(new ObjectId(bookId));
-            wishList = wishListRepository.save(wishList);
+            wishList.getBooks().add(bookObjectId);
+            wishListRepository.save(wishList);
 
             List<BookDTO> wishlistResponse = wishList.getBooks().stream()
                     .map(bookItemId -> {
-                        Optional<Book> optionalBook = bookRepository.findById(bookItemId);
-                        return optionalBook.map(bookService::convertToBookDTO).orElse(null);
+                        Optional<Book> bookOptional = bookRepository.findById(bookItemId);
+                        return bookOptional.map(bookService::convertToBookDTO).orElse(null);
                     })
-                    .filter(bookDTO -> bookDTO != null)
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(GenericResponse.builder()

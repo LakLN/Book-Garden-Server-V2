@@ -13,6 +13,7 @@ import java.util.Optional;
 @Repository
 public interface AuthorRepository extends MongoRepository<Author, String> {
     @Cacheable("authors")
-    List<Author> findAllByIdIn(List<ObjectId> categoryIds);
+    List<Author> findAllByIdIn(List<ObjectId> ids);
     Optional<Author> findByAuthorName(String authorName);
+    Optional<Author> findById(ObjectId authorId);
 }
