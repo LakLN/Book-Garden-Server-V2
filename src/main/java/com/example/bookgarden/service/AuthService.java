@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -146,28 +147,41 @@ public class AuthService {
                     .data(null)
                     .build();
         }
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginDTO.getEmail(), loginDTO.getPassWord()));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginDTO.getEmail(), loginDTO.getPassWord()));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            UserDetail userDetail = (UserDetail) authentication.getPrincipal();
+            String accessToken = jwtTokenProvider.generateAccessToken(userDetail);
+            Token refreshToken = new Token();
+            String token = jwtTokenProvider.generateRefreshToken(userDetail);
+            refreshToken.setToken(token);
+            refreshToken.setUserId(userDetail.getUserId());
 
-        UserDetail userDetail = (UserDetail) authentication.getPrincipal();
-        String accessToken = jwtTokenProvider.generateAccessToken(userDetail);
-        Token refreshToken = new Token();
-        String token = jwtTokenProvider.generateRefreshToken(userDetail);
-        refreshToken.setToken(token);
-        refreshToken.setUserId(userDetail.getUserId());
+            tokenService.save(refreshToken);
+            Map<String, String> tokenMap = new HashMap<>();
+            tokenMap.put("accessToken", accessToken);
+            tokenMap.put("refreshToken", token);
 
-        tokenService.save(refreshToken);
-        Map<String, String> tokenMap = new HashMap<>();
-        tokenMap.put("accessToken", accessToken);
-        tokenMap.put("refreshToken", token);
-
-        return GenericResponse.builder()
-                .success(true)
-                .message("Đăng nhập thành công!")
-                .data(tokenMap)
-                .build();
+            return GenericResponse.builder()
+                    .success(true)
+                    .message("Đăng nhập thành công!")
+                    .data(tokenMap)
+                    .build();
+        } catch (BadCredentialsException ex) {
+            return GenericResponse.builder()
+                    .success(false)
+                    .message("Mật khẩu không chính xác!")
+                    .data(null)
+                    .build();
+        } catch (Exception ex) {
+            return GenericResponse.builder()
+                    .success(false)
+                    .message("Đã xảy ra lỗi khi đăng nhập!")
+                    .data(ex.getMessage())
+                    .build();
+        }
     }
 
     public String getGoogleLoginUrl() {
