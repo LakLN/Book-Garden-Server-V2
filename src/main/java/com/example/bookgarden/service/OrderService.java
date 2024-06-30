@@ -3,16 +3,19 @@ package com.example.bookgarden.service;
 import com.example.bookgarden.constant.OrderStatus;
 import com.example.bookgarden.dto.*;
 import com.example.bookgarden.entity.*;
+import com.example.bookgarden.exception.ForbiddenException;
 import com.example.bookgarden.repository.*;
 import org.bson.types.ObjectId;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -139,22 +142,7 @@ public class OrderService {
 
     public ResponseEntity<GenericResponse> getAllOrders(String userId){
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!("Admin".equals(optionalUser.get().getRole())) || ("Manager".equals(optionalUser.get().getRole()))) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền lấy danh sách đơn hàng")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
+            checkAdminAndManagerPermission(userId);
             List<Order> orders = orderRepository.findAll();
             List<OrderDTO> orderDTOs = orders.stream()
                     .map(this::convertToOrderDTO)
@@ -192,10 +180,18 @@ public class OrderService {
                         .data(null)
                         .build());
             }
+            Order order = optionalOrder.get();
+            if (!"Admin".equals(optionalUser.get().getRole()) && !"Manager".equals(optionalUser.get().getRole()) && !order.getUser().equals(new ObjectId(userId))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn không có quyền truy cập đơn hàng này")
+                        .data(null)
+                        .build());
+            }
             OrderDTO orderDTO = convertToOrderDTO(optionalOrder.get());
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
-                    .message("Lấy danh sách đơn hàng thành công")
+                    .message("Lấy thông tin đơn hàng thành công")
                     .data(orderDTO)
                     .build());
         } catch (Exception e) {
@@ -209,14 +205,7 @@ public class OrderService {
 
     public ResponseEntity<GenericResponse> updateOrderStatus(String userId, String orderId, UpdateOrderStatusRequestDTO updateOrderStatusRequestDTO) {
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Không tìm thấy người dùng")
-                        .data(null)
-                        .build());
-            }
+            checkAdminAndManagerPermission(userId);
             Optional<Order> optionalOrder = orderRepository.findById(new ObjectId(orderId));
             if (optionalOrder.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
@@ -292,28 +281,36 @@ public class OrderService {
                     .build());
         }
     }
-
-    private OrderDTO convertToOrderDTO(Order order) {
+    @Cacheable("orderDTOCache")
+    public OrderDTO convertToOrderDTO(Order order) {
         OrderDTO orderDTO = new OrderDTO();
         ModelMapper modelMapper = new ModelMapper();
         modelMapper.map(order, orderDTO);
         orderDTO.set_id(order.getId().toString());
         orderDTO.setStatus(order.getStatus().toString());
+
         List<OrderItem> orderItems = orderItemRepository.findByIdIn(order.getOrderItems());
+        List<ObjectId> bookIds = orderItems.stream()
+                .map(OrderItem::getBook)
+                .collect(Collectors.toList());
+
+        Map<ObjectId, Book> booksMap = bookRepository.findAllById(bookIds).stream()
+                .collect(Collectors.toMap(Book::getId, book -> book));
+
         List<OrderItemDTO> orderItemDTOs = orderItems.stream()
-                .map(this::convertToOrderItemDTO)
+                .map(orderItem -> convertToOrderItemDTO(orderItem, booksMap, modelMapper))
                 .collect(Collectors.toList());
 
         orderDTO.setOrderItems(orderItemDTOs);
         return orderDTO;
     }
-    private OrderItemDTO convertToOrderItemDTO(OrderItem orderItem) {
+    @Cacheable("orderItemDTOCache")
+    public OrderItemDTO convertToOrderItemDTO(OrderItem orderItem, Map<ObjectId, Book> booksMap, ModelMapper modelMapper) {
         OrderItemDTO orderItemDTO = new OrderItemDTO();
-        ModelMapper modelMapper = new ModelMapper();
         modelMapper.map(orderItem, orderItemDTO);
         orderItemDTO.set_id(orderItem.getId().toString());
 
-        Book book = bookRepository.findById(orderItem.getBook()).get();
+        Book book = booksMap.get(orderItem.getBook());
         orderItemDTO.setBook(bookService.convertToBookDTO(book));
         return orderItemDTO;
     }
@@ -331,6 +328,16 @@ public class OrderService {
                 return false;
             default:
                 return false;
+        }
+    }
+    private void checkAdminAndManagerPermission(String userId) throws ForbiddenException {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (optionalUser.isPresent()) {
+            if (!"Admin".equals(optionalUser.get().getRole()) && !"Manager".equals(optionalUser.get().getRole())) {
+                throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
+            }
+        } else {
+            throw new ForbiddenException("Người dùng không tồn tại");
         }
     }
 }

@@ -16,20 +16,21 @@ public class OrderController {
     private OrderService orderService;
     @Autowired
     JwtTokenProvider jwtTokenProvider;
+    //Get All Orders
     @GetMapping
     public ResponseEntity<GenericResponse> getAllOrders(@RequestHeader("Authorization") String authorizationHeader){
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return orderService.getAllOrders(userId);
     }
-
+    //Get All Orders
     @GetMapping("/{orderId}")
     public ResponseEntity<GenericResponse> getOrderById(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String orderId){
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return orderService.getOrderById(userId, orderId);
     }
-
+    //Update Order Status
     @PutMapping("/{orderId}/status")
     public ResponseEntity<GenericResponse> updateOrderStatus(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String orderId,
                                                              @RequestBody UpdateOrderStatusRequestDTO updateOrderStatusRequestDTO){

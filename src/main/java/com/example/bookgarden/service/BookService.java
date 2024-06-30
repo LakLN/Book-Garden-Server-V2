@@ -64,7 +64,7 @@ public class BookService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
 
-        if (!("Admin".equals(user.getRole())||"Manager".equals((user.getRole())))) {
+        if (!"Admin".equals(user.getRole()) && !"Manager".equals(user.getRole())) {
             throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
         }
     }

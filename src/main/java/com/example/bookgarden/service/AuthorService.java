@@ -181,7 +181,7 @@ public class AuthorService {
     private void checkAdminAndManagerPermission(String userId) throws ForbiddenException {
         Optional<User> optionalUser = userRepository.findById(userId);
         if (optionalUser.isPresent()) {
-            if (!("Admin".equals(optionalUser.get().getRole()))||("Manager".equals(optionalUser.get().getRole()))) {
+            if (!"Admin".equals(optionalUser.get().getRole()) && !"Manager".equals(optionalUser.get().getRole())) {
                 throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
             }
         } else {
