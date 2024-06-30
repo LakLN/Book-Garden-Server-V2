@@ -3,6 +3,7 @@ package com.example.bookgarden.service;
 import com.example.bookgarden.entity.User;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -32,6 +33,8 @@ public class OTPService {
 
     @Autowired
     private OTPRepository otpRepository;
+    @Value("${client.host}")
+    private String clientHost;
 
     public void sendRegisterOtp(String email) {
         String otp = generateOtp();
@@ -156,7 +159,7 @@ public class OTPService {
                 .append("<p>Vui lòng nhập mã ở trên vào đường dẫn sau để xác thực tài khoản của bạn.</p>")
                 .append("<p><i>(*) Lưu ý: Mã OTP chỉ có giá trị trong vòng 5 phút.</i></p>")
                 .append("</div>")
-                .append("<a href=\"https://book-garden-reactjs.web.app/email/verify?email=").append(email).append("\" style=\"text-decoration: none;\">")
+                .append("<a href=\"").append(clientHost).append("/email/verify?email=").append(email).append("\" style=\"text-decoration: none;\">")
                 .append("<button class=\"verify-link\">")
                 .append("Xác thực")
                 .append("</button>")
@@ -198,7 +201,7 @@ public class OTPService {
                 .append("<div class=\"message\"><p>Xin chào,</p><p>Bạn đang thực hiện Khôi phục mật khẩu trên website Book Garden.</p><p>Mã OTP của bạn là:</p></div>")
                 .append("<div class=\"otp\"><span>").append(otp).append("</span></div>")
                 .append("<div class=\"verify-text\"><p>Vui lòng nhập mã ở trên vào đường dẫn sau để xác thực tài khoản của bạn.</p><p><i>(*) Lưu ý: Mã OTP chỉ có giá trị trong vòng 5 phút.</i></p></div>")
-                .append("<a href=\"https://book-garden-reactjs.web.app/email/verify?email=").append(email).append("\" style=\"text-decoration: none;\"><button class=\"verify-link\">Xác thực</button></a>")
+                .append("<a href=\"").append(clientHost).append("/email/verify?email=").append(email).append("\" style=\"text-decoration: none;\"><button class=\"verify-link\">Xác thực</button></a>")
                 .append("<div class=\"footer\"><p>Nếu bạn không đăng ký tài khoản, vui lòng bỏ qua email này.</p></div>")
                 .append("</div>")
                 .append("</body>")
