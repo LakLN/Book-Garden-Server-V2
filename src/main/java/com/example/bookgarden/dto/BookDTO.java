@@ -22,4 +22,9 @@ public class BookDTO {
     private String image;
     private boolean isDeleted;
     private String publisher;
+    public BookDTO(String _id, String title)
+    {
+        this._id = _id;
+        this.title = title;
+    }
 }

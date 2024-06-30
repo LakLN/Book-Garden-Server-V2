@@ -27,6 +27,7 @@ public class AuthorController {
     public ResponseEntity<GenericResponse> getAllAuthors(){
         return authorService.getAllAuthors();
     }
+    //Add Author
     @PostMapping("/add")
     public ResponseEntity<GenericResponse> addAuthor(@RequestHeader("Authorization") String authorizationHeader, @Valid @RequestBody UpdateAuthorRequestDTO addAuthorRequestDTO,
                                                        BindingResult bindingResult){
@@ -47,11 +48,12 @@ public class AuthorController {
         }
         return authorService.addAuthor(userId, addAuthorRequestDTO);
     }
+    // Get One Author by ID
     @GetMapping("/{authorId}")
     public ResponseEntity<GenericResponse> getAuthorById(@PathVariable String authorId){
         return authorService.getAuthorById(authorId);
     }
-
+    //Update Author
     @PutMapping("/{authorId}")
     public ResponseEntity<GenericResponse> updateAuthor(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String authorId,
                                                         @Valid @RequestBody UpdateAuthorRequestDTO updateAuthorRequestDTO, BindingResult bindingResult){

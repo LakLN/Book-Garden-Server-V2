@@ -5,6 +5,7 @@ import com.example.bookgarden.entity.Author;
 import com.example.bookgarden.entity.Book;
 import com.example.bookgarden.entity.Category;
 import com.example.bookgarden.entity.User;
+import com.example.bookgarden.exception.ForbiddenException;
 import com.example.bookgarden.repository.AuthorRepository;
 import com.example.bookgarden.repository.BookRepository;
 import com.example.bookgarden.repository.UserRepository;
@@ -13,6 +14,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.jms.JmsProperties;
 import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -37,7 +39,6 @@ public class AuthorService {
     @Autowired
     private UserRepository userRepository;
 
-    Cache cache;
     public ResponseEntity<GenericResponse> getAllAuthors() {
         try {
             List<Author> authors = authorRepository.findAll();
@@ -54,8 +55,8 @@ public class AuthorService {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Lỗi lấy danh sách tác giả")
-                    .data(e.getMessage())
+                    .message("Lỗi lấy danh sách tác giả: " + e.getMessage())
+                    .data(null)
                     .build());
         }
     }
@@ -87,29 +88,13 @@ public class AuthorService {
     }
     public ResponseEntity<GenericResponse> updateAuthor(String userId, String authorId, UpdateAuthorRequestDTO updateAuthorRequestDTO) {
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!("Admin".equals(optionalUser.get().getRole()))) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền cập nhật tên tác giả")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
-            Optional<Author> optionalAuthor = authorRepository.findById(authorId);
+            checkAdminAndManagerPermission(userId);
+            Optional<Author> optionalAuthor = authorRepository.findById(new ObjectId(authorId));
             if (optionalAuthor.isPresent()) {
                 Author author = optionalAuthor.get();
-
                 author.setAuthorName(updateAuthorRequestDTO.getAuthorName());
-                Author updatedAuthor = authorRepository.save(author);
 
+                Author updatedAuthor = authorRepository.save(author);
                 AuthorResponseDTO authorResponseDTO = convertToAuthorDTO(updatedAuthor);
 
                 return ResponseEntity.ok(GenericResponse.builder()
@@ -124,32 +109,24 @@ public class AuthorService {
                         .data(null)
                         .build());
             }
+        } catch (ForbiddenException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Lỗi khi cập nhật danh mục")
-                    .data(e.getMessage())
+                    .message("Lỗi khi cập nhật tác giả: " + e.getMessage())
+                    .data(null)
                     .build());
         }
     }
+
     public ResponseEntity<GenericResponse> addAuthor(String userId, UpdateAuthorRequestDTO addAuthorRequestDTO){
         try {
-            Optional<User> optionalUser = userRepository.findById(userId);
-            if (optionalUser.isPresent()) {
-                if (!("Admin".equals(optionalUser.get().getRole())) || ("Mangager".equals(optionalUser.get().getRole()))){
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
-                            .success(false)
-                            .message("Bạn không có quyền thêm tác giả")
-                            .data(null)
-                            .build());
-                }
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Người dùng không tồn tại")
-                        .data(null)
-                        .build());
-            }
+            checkAdminAndManagerPermission(userId);
             Optional<Author> existingAuthor = authorRepository.findByAuthorName(addAuthorRequestDTO.getAuthorName());
             if (existingAuthor.isPresent()){
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
@@ -177,25 +154,38 @@ public class AuthorService {
                     .build());
         }
     }
-    private AuthorResponseDTO convertToAuthorDTO(Author author) {
+    @Cacheable("authorDTOCache")
+    public AuthorResponseDTO convertToAuthorDTO(Author author) {
         AuthorResponseDTO authorResponseDTO = new AuthorResponseDTO();
         authorResponseDTO.setId(author.getId().toString());
         authorResponseDTO.setAuthorName(author.getAuthorName());
 
         List<Book> books = bookRepository.findAllById(author.getBooks());
-
         List<BookDTO> bookDTOs = books.stream()
-                .map(book -> bookService.convertToBookDTO(book))
+                .map(bookService::convertToBookDTO)
                 .collect(Collectors.toList());
         authorResponseDTO.setBooks(bookDTOs);
 
         return authorResponseDTO;
     }
-
-    public List<Author> findAuthorsByIds(List<ObjectId> authorIds) {
-        List<Author> authors = cache.get("authors:" + authorIds, () -> {
-            return authorRepository.findAllByIdIn(authorIds);
-        });
-        return authors;
+    private void checkAdminPermission(String userId) throws ForbiddenException {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (optionalUser.isPresent()) {
+            if (!"Admin".equals(optionalUser.get().getRole())) {
+                throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
+            }
+        } else {
+            throw new ForbiddenException("Người dùng không tồn tại");
+        }
+    }
+    private void checkAdminAndManagerPermission(String userId) throws ForbiddenException {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (optionalUser.isPresent()) {
+            if (!("Admin".equals(optionalUser.get().getRole()))||("Manager".equals(optionalUser.get().getRole()))) {
+                throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này");
+            }
+        } else {
+            throw new ForbiddenException("Người dùng không tồn tại");
+        }
     }
 }

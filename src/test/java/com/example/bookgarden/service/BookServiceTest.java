@@ -1,8 +1,6 @@
 package com.example.bookgarden.service;
 
 import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
-import com.example.bookgarden.dto.AddBookRequestDTO;
 import com.example.bookgarden.dto.BookDTO;
 import com.example.bookgarden.dto.BookDetailDTO;
 import com.example.bookgarden.dto.GenericResponse;
@@ -17,8 +15,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.mock.web.MockMultipartHttpServletRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.*;
