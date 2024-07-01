@@ -1,13 +1,14 @@
 package com.example.bookgarden.controller;
 
-import com.example.bookgarden.dto.AddressesRequestDTO;
-import com.example.bookgarden.dto.ChangePasswordRequestDTO;
-import com.example.bookgarden.dto.GenericResponse;
-import com.example.bookgarden.dto.UpdateProfileRequestDTO;
+import com.example.bookgarden.dto.*;
+import com.example.bookgarden.entity.SearchHistory;
+import com.example.bookgarden.exception.ItemNotFoundException;
 import com.example.bookgarden.security.JwtTokenProvider;
+import com.example.bookgarden.service.SearchHistoryService;
 import com.example.bookgarden.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
@@ -28,6 +29,8 @@ public class UserController {
     public UserRepository userRepository;
     @Autowired
     private UserService userService;
+    @Autowired
+    private SearchHistoryService searchHistoryService;
 
     //Get Profile
     @GetMapping("/profile")
@@ -95,5 +98,59 @@ public class UserController {
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return userService.updateAddresses(userId, addressesRequestDTO);
+    }
+
+    //Save Search History
+    @PostMapping("/search-history/save")
+    public ResponseEntity<?> saveSearchHistory(@RequestHeader("Authorization") String authorizationHeader, @RequestBody SearchHistoryRequestDTO searchHistoryRequestDTO) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        SearchHistory searchHistory = searchHistoryService.saveSearchHistory(userId, searchHistoryRequestDTO.getSearchQuery());
+
+        return ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Lưu lịch sử tìm kiếm thành công")
+                .data(searchHistory)
+                .build());
+    }
+    // Get Search History
+    @GetMapping("/search-history")
+    public ResponseEntity<GenericResponse> getSearchHistoryByUser(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        List<String> searchQueries = searchHistoryService.getSearchHistoryByUserId(userId);
+
+        return ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Lấy lịch sử tìm kiếm thành công")
+                .data(searchQueries)
+                .build());
+    }
+    @DeleteMapping("/search-history/delete")
+    public ResponseEntity<GenericResponse> deleteSearchHistoryItem(@RequestHeader("Authorization") String authorizationHeader,
+                                                                   @RequestBody SearchHistoryRequestDTO searchHistoryRequestDTO) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+
+        try {
+            searchHistoryService.deleteSearchHistoryItem(userId, searchHistoryRequestDTO.getSearchQuery());
+            return ResponseEntity.ok(GenericResponse.builder()
+                    .success(true)
+                    .message("Xóa mục lịch sử tìm kiếm thành công")
+                    .data(null)
+                    .build());
+        } catch (ItemNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi xóa mục lịch sử tìm kiếm")
+                    .data(e.getMessage())
+                    .build());
+        }
     }
 }
