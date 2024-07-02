@@ -85,8 +85,17 @@ public class UserService {
         }
 
         User user = userOptional.get();
-        user.setPassWord(passwordEncoder.encode(changePasswordRequestDTO.getPassWord()));
+        if (!passwordEncoder.matches(changePasswordRequestDTO.getOldPassWord(), user.getPassWord())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    GenericResponse.builder()
+                            .success(false)
+                            .message("Mật khẩu cũ không chính xác!")
+                            .data(null)
+                            .build()
+            );
+        }
 
+        user.setPassWord(passwordEncoder.encode(changePasswordRequestDTO.getPassWord()));
         try {
             userRepository.save(user);
             return ResponseEntity.ok(

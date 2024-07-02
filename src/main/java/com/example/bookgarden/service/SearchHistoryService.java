@@ -6,6 +6,7 @@ import com.example.bookgarden.repository.SearchHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,7 +23,7 @@ public class SearchHistoryService {
     }
     @Cacheable(value = "searchHistoryCache", key = "#userId")
     public List<String> getSearchHistoryByUserId(String userId) {
-        List<SearchHistory> searchHistories = searchHistoryRepository.findByUserId(userId);
+        List<SearchHistory> searchHistories = searchHistoryRepository.findByUserIdOrderBySearchDateDesc(userId, PageRequest.of(0, 10));
         return searchHistories.stream()
                 .map(SearchHistory::getSearchQuery)
                 .collect(Collectors.toList());
