@@ -80,6 +80,13 @@ public class UserController {
                     .data(errorMessages)
                     .build());
         }
+        if (changePasswordRequestDTO.getPassWord().equals(changePasswordRequestDTO.getOldPassWord())) {
+            return ResponseEntity.badRequest().body(GenericResponse.builder()
+                    .success(false)
+                    .message("Mật khẩu mới không được giống với mật khẩu cũ!")
+                    .data(null)
+                    .build());
+        }
         if (!changePasswordRequestDTO.getPassWord().equals(changePasswordRequestDTO.getConfirmPassWord())) {
             return ResponseEntity.badRequest().body(GenericResponse.builder()
                     .success(false)

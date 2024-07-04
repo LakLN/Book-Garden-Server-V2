@@ -88,7 +88,7 @@ public class TokenService {
                     return ResponseEntity.status(HttpStatus.OK)
                             .body(GenericResponse.builder()
                                     .success(true)
-                                    .message("Logout successfully!")
+                                    .message("Đăng xuất thành công!")
                                     .data("")
                                     .build());
                 }
@@ -96,7 +96,7 @@ public class TokenService {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(GenericResponse.builder()
                                 .success(false)
-                                .message("Invalid refresh token")
+                                .message("Refresh token không hợp lệ")
                                 .data("")
                                 .build());
             }

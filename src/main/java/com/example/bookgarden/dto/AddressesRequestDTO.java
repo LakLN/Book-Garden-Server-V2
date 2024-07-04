@@ -6,5 +6,5 @@ import java.util.List;
 
 @Data
 public class AddressesRequestDTO {
-    private List<String> addresses;
+    private List<AddressDTO> addresses;
 }

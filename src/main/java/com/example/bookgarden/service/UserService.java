@@ -8,6 +8,7 @@ import com.example.bookgarden.entity.User;
 import com.example.bookgarden.repository.AddressRepository;
 import com.example.bookgarden.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
+import org.bson.types.ObjectId;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -63,14 +64,15 @@ public class UserService {
         );
     }
 
-    public List<Address> getAddressList(List<String> addressIds) {
+    public List<Address> getAddressList(List<ObjectId> addressIds) {
         List<Address> addresses = new ArrayList<>();
-        for (String addressId : addressIds) {
+        for (ObjectId addressId : addressIds) {
             Optional<Address> optionalAddress = addressRepository.findById(addressId);
             optionalAddress.ifPresent(addresses::add);
         }
         return addresses;
     }
+
 
     public ResponseEntity<GenericResponse> changePassword(String userId, ChangePasswordRequestDTO changePasswordRequestDTO) {
         Optional<User> userOptional = userRepository.findById(userId);
@@ -123,7 +125,7 @@ public class UserService {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     GenericResponse.builder()
                             .success(false)
-                            .message("User not found")
+                            .message("Không tìm thấy người dùng")
                             .data(null)
                             .build()
             );
@@ -140,7 +142,7 @@ public class UserService {
             } catch (Exception e) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                         .success(false)
-                        .message("Error uploading image")
+                        .message("Upload ảnh thất bại")
                         .data(null)
                         .build());
             }
@@ -148,7 +150,7 @@ public class UserService {
 
         userRepository.save(user);
         List<Address> addresses = new ArrayList<>();
-        for (String addressId : user.getAddresses()) {
+        for (ObjectId addressId : user.getAddresses()) {
             Optional<Address> optionalAddress = addressRepository.findById(addressId);
             optionalAddress.ifPresent(addresses::add);
         }
@@ -159,7 +161,7 @@ public class UserService {
         return ResponseEntity.ok(
                 GenericResponse.builder()
                         .success(true)
-                        .message("User profile updated successfully")
+                        .message("Cập nhật thông tin người dùng thành công!")
                         .data(userResponse)
                         .build()
         );
@@ -179,25 +181,33 @@ public class UserService {
         }
 
         User user = optionalUser.get();
+        List<ObjectId> oldAddressIds = new ArrayList<>(user.getAddresses());
         List<Address> newAddresses = new ArrayList<>();
 
-        for (String address : addressesRequestDTO.getAddresses()) {
-            Address addressEntity = addressRepository.findByAddress(address)
+        for (AddressDTO addressDTO : addressesRequestDTO.getAddresses()) {
+            Address addressEntity = addressRepository.findByNameAndPhoneNumberAndAddress(
+                            addressDTO.getName(),
+                            addressDTO.getPhoneNumber(),
+                            addressDTO.getAddress())
                     .orElseGet(() -> {
                         Address newAddress = new Address();
-                        newAddress.setAddress(address);
+                        newAddress.setName(addressDTO.getName());
+                        newAddress.setPhoneNumber(addressDTO.getPhoneNumber());
+                        newAddress.setAddress(addressDTO.getAddress());
                         return addressRepository.save(newAddress);
                     });
             newAddresses.add(addressEntity);
         }
 
-        user.setAddresses(newAddresses.stream().map(Address::getId).collect(Collectors.toList()));
+        List<ObjectId> newAddressIds = newAddresses.stream().map(Address::getId).collect(Collectors.toList());
+        user.setAddresses(newAddressIds);
         User updatedUser = userRepository.save(user);
-
-        List<Address> addresses = updatedUser.getAddresses().stream()
-                .map(addressId -> addressRepository.findById(addressId).orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        for (ObjectId addressId : oldAddressIds) {
+            if (!newAddressIds.contains(addressId)) {
+                addressRepository.deleteById(addressId.toString());
+            }
+        }
+        List<Address> addresses = getAddressList(updatedUser.getAddresses());
 
         ModelMapper modelMapper = new ModelMapper();
         UserDTO userResponse = modelMapper.map(updatedUser, UserDTO.class);

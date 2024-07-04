@@ -38,7 +38,7 @@ public class User implements Serializable {
     private String gender;
     private String avatar = "https://res.cloudinary.com/dfwwu6ft4/image/upload/v1702295984/z4964484552810_6883dabc5756c5535dba610f6492807c_wna4vw.jpg";
     private Date birthday;
-    private List<String> addresses = new ArrayList<>();
+    private List<ObjectId> addresses = new ArrayList<>();
     private String cart;
     private List<ObjectId> historyOrders = new ArrayList<>();
     private String wishList;

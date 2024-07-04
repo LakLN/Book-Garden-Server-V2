@@ -56,7 +56,7 @@ public class OrderService {
                 Address newAddress = new Address();
                 newAddress.setAddress(createOrderRequestDTO.getAddress());
                 addressRepository.save(newAddress);
-                List<String> addresses = user.getAddresses();
+                List<ObjectId> addresses = user.getAddresses();
                 addresses.add(newAddress.getId());
                 user.setAddresses(addresses);
                 userRepository.save(user);

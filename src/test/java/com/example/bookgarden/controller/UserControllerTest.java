@@ -200,6 +200,6 @@ public class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"searchQuery\":\"" + searchQuery + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(content().json("{\"success\":true,\"message\":\"Xóa mục git lịch sử tìm kiếm thành công\",\"data\":null}"));
+                .andExpect(content().json("{\"success\":true,\"message\":\"Xóa mục lịch sử tìm kiếm thành công\",\"data\":null}"));
     }
 }
