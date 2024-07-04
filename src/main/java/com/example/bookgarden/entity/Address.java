@@ -21,4 +21,5 @@ public class Address implements Serializable {
     private String name;
     private String phoneNumber;
     private String address;
+    private Boolean isDefault;
 }

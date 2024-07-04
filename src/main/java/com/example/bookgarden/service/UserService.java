@@ -53,7 +53,9 @@ public class UserService {
         List<Address> addresses = getAddressList(user.getAddresses());
 
         UserDTO userResponse = modelMapper.map(user, UserDTO.class);
-        userResponse.setAddresses(addresses);
+        userResponse.setAddresses(addresses.stream()
+                .map(address -> modelMapper.map(address, AddressDTO.class))
+                .collect(Collectors.toList()));
 
         return ResponseEntity.ok(
                 GenericResponse.builder()
@@ -156,7 +158,9 @@ public class UserService {
         }
 
         UserDTO userResponse = modelMapper.map(user, UserDTO.class);
-        userResponse.setAddresses(addresses);
+        userResponse.setAddresses(addresses.stream()
+                .map(address -> modelMapper.map(address, AddressDTO.class))
+                .collect(Collectors.toList()));
 
         return ResponseEntity.ok(
                 GenericResponse.builder()
@@ -183,6 +187,7 @@ public class UserService {
         User user = optionalUser.get();
         List<ObjectId> oldAddressIds = new ArrayList<>(user.getAddresses());
         List<Address> newAddresses = new ArrayList<>();
+        boolean defaultAddressFound = false;
 
         for (AddressDTO addressDTO : addressesRequestDTO.getAddresses()) {
             Address addressEntity = addressRepository.findByNameAndPhoneNumberAndAddress(
@@ -194,24 +199,43 @@ public class UserService {
                         newAddress.setName(addressDTO.getName());
                         newAddress.setPhoneNumber(addressDTO.getPhoneNumber());
                         newAddress.setAddress(addressDTO.getAddress());
+                        newAddress.setIsDefault(addressDTO.getIsDefault());
                         return addressRepository.save(newAddress);
                     });
+
+            if (addressDTO.getIsDefault() && defaultAddressFound==false) {
+                defaultAddressFound = true;
+                addressEntity.setIsDefault(true);
+            } else {
+                addressEntity.setIsDefault(false);
+            }
+            addressRepository.save(addressEntity); // Ensure the entity is saved with the correct default flag
             newAddresses.add(addressEntity);
+        }
+
+        if (!defaultAddressFound && !newAddresses.isEmpty()) {
+            Address firstAddress = newAddresses.get(0);
+            firstAddress.setIsDefault(true);
+            addressRepository.save(firstAddress);
         }
 
         List<ObjectId> newAddressIds = newAddresses.stream().map(Address::getId).collect(Collectors.toList());
         user.setAddresses(newAddressIds);
         User updatedUser = userRepository.save(user);
+
         for (ObjectId addressId : oldAddressIds) {
             if (!newAddressIds.contains(addressId)) {
                 addressRepository.deleteById(addressId.toString());
             }
         }
+
         List<Address> addresses = getAddressList(updatedUser.getAddresses());
 
         ModelMapper modelMapper = new ModelMapper();
         UserDTO userResponse = modelMapper.map(updatedUser, UserDTO.class);
-        userResponse.setAddresses(addresses);
+        userResponse.setAddresses(addresses.stream()
+                .map(address -> modelMapper.map(address, AddressDTO.class))
+                .collect(Collectors.toList()));
 
         return ResponseEntity.ok(GenericResponse.builder()
                 .success(true)
@@ -219,6 +243,8 @@ public class UserService {
                 .data(userResponse)
                 .build());
     }
+
+
 
 
     public ResponseEntity<GenericResponse> getAllUsers(String userId) {

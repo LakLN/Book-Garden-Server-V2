@@ -21,5 +21,5 @@ public class UserDTO {
     private int points;
     private Date birthday;
     private String gender;
-    private List<Address> addresses;
+    private List<AddressDTO> addresses;
 }
