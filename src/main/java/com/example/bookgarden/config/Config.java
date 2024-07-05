@@ -23,7 +23,7 @@ public class Config {
     public static String vnp_ReturnUrl;
     @PostConstruct
     public void init() {
-        vnp_ReturnUrl = clientHost + "/profile/order-hisory";
+        vnp_ReturnUrl = clientHost + "/profile/order-history";
     }
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 
