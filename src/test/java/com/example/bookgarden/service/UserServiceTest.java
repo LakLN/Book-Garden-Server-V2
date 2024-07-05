@@ -7,6 +7,7 @@ import com.example.bookgarden.repository.AddressRepository;
 import com.example.bookgarden.repository.UserRepository;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -57,11 +58,11 @@ public class UserServiceTest {
         user.setId("userId1");
         user.setFullName("John Doe");
         user.setEmail("john.doe@example.com");
-        user.setAddresses(Arrays.asList("addressId1"));
+        user.setAddresses(Arrays.asList(new ObjectId()));
 
         // Create mock Address entity
         Address address = new Address();
-        address.setId("addressId1");
+        address.setId(new ObjectId());
         address.setAddress("123 Main St");
 
         // Define mock behavior
@@ -92,14 +93,14 @@ public class UserServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(user);
 
         AddressesRequestDTO addressesRequestDTO = new AddressesRequestDTO();
-        addressesRequestDTO.setAddresses(List.of("123 Street", "456 Avenue"));
+        addressesRequestDTO.setAddresses(List.of(new AddressDTO()));
 
         when(addressRepository.findByAddress(anyString()))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.empty());
 
-        Address address1 = new Address("1", "123 Street");
-        Address address2 = new Address("2", "456 Avenue");
+        Address address1 = new Address();
+        Address address2 = new Address();
 
         when(addressRepository.save(any(Address.class))).thenReturn(address1).thenReturn(address2);
         when(addressRepository.findById("1")).thenReturn(Optional.of(address1));

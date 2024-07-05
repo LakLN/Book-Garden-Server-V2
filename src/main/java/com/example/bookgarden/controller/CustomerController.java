@@ -1,11 +1,16 @@
 package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
+import com.example.bookgarden.repository.BookRepository;
 import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.service.*;
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/customer")
@@ -22,7 +27,10 @@ public class CustomerController {
     private PostService postService;
     @Autowired
     private BookService bookService;
-
+    @Autowired
+    private RecommendationService recommendationService;
+    @Autowired
+    private BookRepository bookRepository;
     //Get cart
     @GetMapping("/cart")
     public ResponseEntity<GenericResponse> getCart(@RequestHeader("Authorization") String authorizationHeader) {
@@ -92,4 +100,14 @@ public class CustomerController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return bookService.reviewBook(userId, bookId, reviewBookRequestDTO);
     }
+
+    //Recommendation Books
+    @GetMapping("/recommended-books")
+    public ResponseEntity<List<BookDTO>> getUserRecommendations(@RequestHeader("Authorization") String authorizationHeader){
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        List<BookDTO> recommendations = recommendationService.recommendBooks(userId);
+        return ResponseEntity.ok(recommendations);
+    }
+
 }

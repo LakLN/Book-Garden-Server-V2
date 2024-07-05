@@ -22,5 +22,15 @@ public interface BookRepository extends MongoRepository<Book, ObjectId> {
     List<Book> findRelatedBooksByCategories(List<ObjectId> categoryIds);
     List<Book> findByIdIn(List<ObjectId> objectIds);
     List<Book> findTop10BySoldQuantityIsNotNullOrderBySoldQuantityDesc();
+    List<Book> findByTitleContainingIgnoreCase(String searchQuery);
+    List<Book> findByCategoriesContains(ObjectId categoryId);
+
+    List<Book> findByAuthorsContains(ObjectId authorId);
+
+    List<Book> findTopByOrderByReleaseDateDesc();
+
+    List<Book> findTopByOrderBySoldQuantityDesc();
+
+    List<Book> findTopByOrderByAverageRatingDesc();
 
 }

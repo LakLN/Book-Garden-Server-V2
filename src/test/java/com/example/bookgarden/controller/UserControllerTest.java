@@ -1,5 +1,6 @@
 package com.example.bookgarden.controller;
 
+import com.example.bookgarden.dto.AddressDTO;
 import com.example.bookgarden.dto.GenericResponse;
 import com.example.bookgarden.dto.UpdateProfileRequestDTO;
 import com.example.bookgarden.dto.UserDTO;
@@ -11,6 +12,7 @@ import com.example.bookgarden.service.SearchHistoryService;
 import com.example.bookgarden.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -79,7 +81,7 @@ public class UserControllerTest {
         userDTO.setUserId("userId");
         userDTO.setFullName("Tester 01");
         userDTO.setEmail("test01@example.com");
-        userDTO.setAddresses(Collections.singletonList(new Address("addressId1", "123 Main St")));
+        userDTO.setAddresses(Collections.singletonList(new AddressDTO()));
 
         GenericResponse response = GenericResponse.builder()
                 .success(true)

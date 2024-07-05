@@ -1,5 +1,8 @@
 package com.example.bookgarden.config;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
+
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -15,8 +18,15 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletRequest;
 
 public class Config {
+    @Value("${client.host}")
+    private String clientHost;
+    public static String vnp_ReturnUrl;
+    @PostConstruct
+    public void init() {
+        vnp_ReturnUrl = clientHost + "/profile/order-hisory";
+    }
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    public static String vnp_ReturnUrl = "https://book-garden-reactjs.web.app//cart";
+
     public static String vnp_TmnCode = "EQ4QP1CE";
     public static String secretKey = "BBAKWGOCGOOJHUVIAEFHSTGHYBOFQFMS";
     public static String vnp_ApiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
