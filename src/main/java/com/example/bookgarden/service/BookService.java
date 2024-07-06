@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,6 +53,7 @@ public class BookService {
     private ReviewRepository reviewRepository;
     @Autowired
     private  ReviewService reviewService;
+    @Autowired DiscountRepository discountRepository;
     private void checkAdminPermission(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
@@ -509,6 +511,11 @@ public class BookService {
         } else {
             bookDTO.setAuthors(Collections.emptyList());
         }
+        Optional<Discount> discountOptional = discountRepository.findByBookId(book.getId());
+        if (discountOptional.isPresent()){
+            int discountPercent = applyDiscountPercentage(discountOptional.get());
+            bookDTO.setDiscountPercent(discountPercent);
+        }
         return bookDTO;
     }
 
@@ -597,5 +604,17 @@ public class BookService {
         authorRepository.save(author);
         return author;
     }
+    public int applyDiscountPercentage(Discount discount) {
+        LocalDate currentDate = LocalDate.now();
 
+        if (currentDate.isBefore(discount.getStartDate())) {
+            return 0;
+        }
+
+        if (discount.getEndDate() != null && currentDate.isAfter(discount.getEndDate())) {
+            return 0;
+        }
+
+        return discount.getDiscountPercent();
+    }
 }

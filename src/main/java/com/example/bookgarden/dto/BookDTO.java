@@ -22,6 +22,7 @@ public class BookDTO {
     private String image;
     private boolean isDeleted;
     private String publisher;
+    private int discountPercent;
     public BookDTO(String _id, String title)
     {
         this._id = _id;

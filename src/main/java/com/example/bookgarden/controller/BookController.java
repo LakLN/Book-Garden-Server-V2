@@ -1,9 +1,11 @@
 package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
+import com.example.bookgarden.entity.Discount;
 import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.service.BookService;
 import com.example.bookgarden.service.CartService;
+import com.example.bookgarden.service.DiscountService;
 import com.example.bookgarden.service.WishListService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,8 @@ public class BookController {
     private CartService cartService;
     @Autowired
     private WishListService wishListService;
+    @Autowired
+    private DiscountService discountService;
 
     // Get all books
     @GetMapping("")
@@ -131,5 +135,36 @@ public class BookController {
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return wishListService.addToWishList(userId, bookId);
+    }
+
+    //Add Discount
+    @PostMapping("/{bookId}/discounts")
+    public ResponseEntity<GenericResponse> addDiscounts(@RequestHeader("Authorization") String authorizationHeader,
+                                                        @PathVariable String bookId,
+                                                        @Valid @RequestBody DiscountDTO discountDTO, BindingResult bindingResult){
+        if (bindingResult.hasErrors()) {
+            List<ObjectError> errors = bindingResult.getAllErrors();
+            List<String> errorMessages = new ArrayList<>();
+            for (ObjectError error : errors) {
+                String errorMessage = error.getDefaultMessage();
+                errorMessages.add(errorMessage);
+            }
+            return ResponseEntity.status(400).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .data(errorMessages)
+                    .build());
+        }
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return discountService.addDiscount(userId, bookId, discountDTO);
+    }
+    //Delete Discount
+    @DeleteMapping("/{bookId}/discounts")
+    public ResponseEntity<GenericResponse> deleteDiscounts(@RequestHeader("Authorization") String authorizationHeader,
+                                                        @PathVariable String bookId) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return discountService.deleteDiscount(userId, bookId);
     }
 }
