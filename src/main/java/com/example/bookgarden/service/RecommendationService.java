@@ -23,8 +23,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class RecommendationService {
-    private static final Logger logger = LoggerFactory.getLogger(RecommendationService.class);
-
     @Autowired
     private BookService bookService;
 
@@ -41,43 +39,10 @@ public class RecommendationService {
     private UserRepository userRepository;
 
     public List<BookDTO> recommendBooks(String userId) {
-        List<Book> recommendedBooks = getCollaborativeFilteringRecommendations(userId);
-
-        // Nếu số lượng sách gợi ý < 10, thêm sách từ các tiêu chí bổ sung
-        if (recommendedBooks.size() < 10) {
-            recommendedBooks.addAll(getBooksByFavoriteGenres(userId, 10 - recommendedBooks.size()));
-        }
-        if (recommendedBooks.size() < 10) {
-            recommendedBooks.addAll(getBooksByFavoriteAuthors(userId, 10 - recommendedBooks.size()));
-        }
-        if (recommendedBooks.size() < 10) {
-            recommendedBooks.addAll(getNewBooks(10 - recommendedBooks.size()));
-        }
-        if (recommendedBooks.size() < 10) {
-            recommendedBooks.addAll(getBestsellingBooks(10 - recommendedBooks.size()));
-        }
-        if (recommendedBooks.size() < 10) {
-            recommendedBooks.addAll(getTopRatedBooks(10 - recommendedBooks.size()));
-        }
-
-        // Chuyển đổi danh sách sách thành DTO
-        List<BookDTO> bookDTOs = recommendedBooks.stream()
-                .map(bookService::convertToBookDTO)
-                .distinct() // Loại bỏ các sách trùng lặp
-                .limit(10) // Giới hạn số lượng sách gợi ý là 10
-                .collect(Collectors.toList());
-        return bookDTOs;
-    }
-
-    private List<Book> getCollaborativeFilteringRecommendations(String userId) {
-        // Lấy tất cả người dùng
         List<User> allUsers = userRepository.findAll();
-        logger.info("Total Users: {}", allUsers.size());
 
-        // Tạo ra tập dữ liệu để sử dụng cho thuật toán Collaborative Filtering
         Map<ObjectId, Map<ObjectId, Double>> userBookMatrix = new HashMap<>();
 
-        // Điền dữ liệu từ lịch sử đặt hàng vào ma trận cho tất cả người dùng
         for (User user : allUsers) {
             List<Order> userOrders = orderRepository.findByUser(new ObjectId(user.getId()));
             ObjectId userObjectId = new ObjectId(user.getId());
@@ -89,7 +54,6 @@ public class RecommendationService {
             }
         }
 
-        // Điền dữ liệu từ lịch sử tìm kiếm vào ma trận cho tất cả người dùng
         for (User user : allUsers) {
             List<SearchHistory> searchHistories = searchHistoryRepository.findByUserId(user.getId());
             ObjectId userObjectId = new ObjectId(user.getId());
@@ -102,34 +66,26 @@ public class RecommendationService {
             }
         }
 
-        // Log ma trận người dùng - sách
-        logger.info("User-Book Matrix: {}", userBookMatrix);
-
-        // Kiểm tra dữ liệu đủ trước khi tính toán
-        if (userBookMatrix.size() <= 1) {
-            throw new IllegalArgumentException("Insufficient data: At least two users are required.");
-        }
-
-        // Chuyển đổi userBookMatrix thành ma trận thực
         Map<ObjectId, Integer> userIndexMap = new HashMap<>();
         Map<ObjectId, Integer> bookIndexMap = new HashMap<>();
         RealMatrix matrix = createRealMatrix(userBookMatrix, userIndexMap, bookIndexMap);
 
-        // Log số lượng hàng và cột của ma trận
-        logger.info("Matrix dimensions: {} rows, {} columns", matrix.getRowDimension(), matrix.getColumnDimension());
-
-        // Tìm chỉ số người dùng mục tiêu
         ObjectId targetUserId = new ObjectId(userId);
         int targetUserIndex = userIndexMap.getOrDefault(targetUserId, -1);
 
-        if (targetUserIndex == -1) {
-            logger.error("Target user ID not found in user-book matrix.");
-            throw new IllegalArgumentException("Target user ID not found in user-book matrix.");
+        List<Book> recommendedBooks = applyCollaborativeFiltering(matrix, targetUserIndex, userBookMatrix, bookIndexMap);
+
+        if (recommendedBooks.size() < 10) {
+            int remainingCount = 10 - recommendedBooks.size();
+            List<Book> additionalBooks = getAdditionalBooks(userId, remainingCount);
+            recommendedBooks.addAll(additionalBooks);
         }
 
-        // Áp dụng thuật toán Collaborative Filtering để tìm các sách gợi ý
-        List<Book> recommendedBooks = applyCollaborativeFiltering(matrix, targetUserIndex, userBookMatrix, bookIndexMap);
-        return recommendedBooks;
+        List<BookDTO> bookDTOs = recommendedBooks.stream()
+                .map(bookService::convertToBookDTO)
+                .collect(Collectors.toList());
+
+        return bookDTOs;
     }
 
     private RealMatrix createRealMatrix(Map<ObjectId, Map<ObjectId, Double>> userBookMatrix, Map<ObjectId, Integer> userIndexMap, Map<ObjectId, Integer> bookIndexMap) {
@@ -156,23 +112,16 @@ public class RecommendationService {
                 matrix.setEntry(rowIndex, colIndex, bookEntry.getValue());
             }
         }
-
-        logger.info("Matrix created: {} rows, {} columns", matrix.getRowDimension(), matrix.getColumnDimension());
         return matrix;
     }
 
     private List<Book> applyCollaborativeFiltering(RealMatrix matrix, int targetUserIndex, Map<ObjectId, Map<ObjectId, Double>> userBookMatrix, Map<ObjectId, Integer> bookIndexMap) {
-        // Tính toán độ tương đồng giữa các người dùng
-        PearsonsCorrelation correlation = new PearsonsCorrelation(matrix.transpose()); // Chuyển vị để tính tương đồng giữa người dùng
+        PearsonsCorrelation correlation = new PearsonsCorrelation(matrix.transpose());
         RealMatrix similarityMatrix = correlation.getCorrelationMatrix();
-        logger.info("Similarity matrix created: {} rows, {} columns", similarityMatrix.getRowDimension(), similarityMatrix.getColumnDimension());
 
-        // Tìm các sách gợi ý dựa trên độ tương đồng
         double[] targetUserSimilarities = similarityMatrix.getRow(targetUserIndex);
         List<Integer> similarUserIndices = findTopNSimilarUsers(targetUserSimilarities, 10);
-        logger.info("Top N similar users: {}", similarUserIndices);
 
-        // Tổng hợp các gợi ý sách từ các người dùng tương tự
         Map<ObjectId, Double> recommendedBookScores = new HashMap<>();
         for (int similarUserIndex : similarUserIndices) {
             if (similarUserIndex == targetUserIndex) continue;
@@ -185,14 +134,12 @@ public class RecommendationService {
             }
         }
 
-        // Sắp xếp các sách theo điểm gợi ý
         List<Map.Entry<ObjectId, Double>> sortedRecommendations = recommendedBookScores.entrySet()
                 .stream()
                 .sorted(Map.Entry.<ObjectId, Double>comparingByValue().reversed())
                 .limit(10)
                 .collect(Collectors.toList());
 
-        // Lấy danh sách các sách gợi ý
         List<Book> recommendedBooks = new ArrayList<>();
         for (Map.Entry<ObjectId, Double> entry : sortedRecommendations) {
             bookRepository.findById(entry.getKey()).ifPresent(recommendedBooks::add);
@@ -221,90 +168,62 @@ public class RecommendationService {
         return null;
     }
 
-    private List<Book> getBooksByFavoriteGenres(String userId, int limit) {
-        // Lấy các thể loại yêu thích của người dùng từ lịch sử đặt hàng và tìm kiếm
-        // Gợi ý sách từ các thể loại này
-        List<Book> favoriteGenreBooks = new ArrayList<>();
-        Set<ObjectId> favoriteGenres = getFavoriteGenres(userId);
-        for (ObjectId genreId : favoriteGenres) {
-            favoriteGenreBooks.addAll(bookRepository.findByCategoriesContains(genreId));
-            if (favoriteGenreBooks.size() >= limit) {
-                break;
-            }
+    private List<Book> getAdditionalBooks(String userId, int limit) {
+        List<Book> additionalBooks = new ArrayList<>();
+        additionalBooks.addAll(getNewBooks(limit));
+        if (additionalBooks.size() < limit) {
+            additionalBooks.addAll(getBestsellingBooks(limit - additionalBooks.size()));
         }
-        return favoriteGenreBooks.stream().limit(limit).collect(Collectors.toList());
-    }
-
-    private List<Book> getBooksByFavoriteAuthors(String userId, int limit) {
-        // Lấy các tác giả yêu thích của người dùng từ lịch sử đặt hàng và tìm kiếm
-        // Gợi ý sách từ các tác giả này
-        List<Book> favoriteAuthorBooks = new ArrayList<>();
-        Set<ObjectId> favoriteAuthors = getFavoriteAuthors(userId);
-        for (ObjectId authorId : favoriteAuthors) {
-            favoriteAuthorBooks.addAll(bookRepository.findByAuthorsContains(authorId));
-            if (favoriteAuthorBooks.size() >= limit) {
-                break;
-            }
+//        if (additionalBooks.size() < limit) {
+//            additionalBooks.addAll(getTopRatedBooks(limit - additionalBooks.size()));
+//        }
+        if (additionalBooks.size() < limit) {
+            additionalBooks.addAll(getBooksByUserPreferences(userId, limit - additionalBooks.size()));
         }
-        return favoriteAuthorBooks.stream().limit(limit).collect(Collectors.toList());
+        return additionalBooks;
     }
 
     private List<Book> getNewBooks(int limit) {
-        // Gợi ý các sách mới xuất bản
-        return bookRepository.findTopByOrderByReleaseDateDesc().stream().limit(limit).collect(Collectors.toList());
+        List<Order> recentOrders = orderRepository.findTop10ByOrderByOrderDateDesc();
+        Set<ObjectId> recentBookIds = recentOrders.stream()
+                .flatMap(order -> order.getOrderItems().stream())
+                .collect(Collectors.toSet());
+        List<Book> recentBooks = new ArrayList<>();
+        for (ObjectId bookId : recentBookIds) {
+            bookRepository.findById(bookId).ifPresent(recentBooks::add);
+        }
+        return recentBooks.stream().limit(limit).collect(Collectors.toList());
     }
 
     private List<Book> getBestsellingBooks(int limit) {
-        // Gợi ý các sách bán chạy
-        return bookRepository.findTopByOrderBySoldQuantityDesc().stream().limit(limit).collect(Collectors.toList());
+        return bookRepository.findTop10ByOrderBySoldQuantityDesc().stream().limit(limit).collect(Collectors.toList());
     }
 
-    private List<Book> getTopRatedBooks(int limit) {
-        // Gợi ý các sách được đánh giá cao
-        return bookRepository.findTopByOrderByAverageRatingDesc().stream().limit(limit).collect(Collectors.toList());
-    }
+//    private List<Book> getTopRatedBooks(int limit) {
+//        return bookRepository.findTop10ByOrderByAverageRatingDesc().stream().limit(limit).collect(Collectors.toList());
+//    }
 
-    private Set<ObjectId> getFavoriteGenres(String userId) {
-        // Lấy các thể loại yêu thích từ lịch sử đặt hàng và tìm kiếm
-        Set<ObjectId> favoriteGenres = new HashSet<>();
-        List<Order> userOrders = orderRepository.findByUser(new ObjectId(userId));
+    private List<Book> getBooksByUserPreferences(String userId, int limit) {
+        ObjectId userObjectId = new ObjectId(userId);
+        List<Order> userOrders = orderRepository.findByUser(userObjectId);
+        Set<ObjectId> preferredCategoryIds = new HashSet<>();
+        Set<ObjectId> preferredAuthorIds = new HashSet<>();
         for (Order order : userOrders) {
             for (ObjectId bookId : order.getOrderItems()) {
-                Book book = bookRepository.findById(bookId).orElse(null);
-                if (book != null) {
-                    favoriteGenres.addAll(book.getCategories());
-                }
+                bookRepository.findById(bookId).ifPresent(book -> {
+                    preferredCategoryIds.addAll(book.getCategories());
+                    preferredAuthorIds.addAll(book.getAuthors());
+                });
             }
         }
-        List<SearchHistory> searchHistories = searchHistoryRepository.findByUserId(userId);
-        for (SearchHistory searchHistory : searchHistories) {
-            List<Book> searchResultBooks = bookRepository.findByTitleContainingIgnoreCase(searchHistory.getSearchQuery());
-            for (Book book : searchResultBooks) {
-                favoriteGenres.addAll(book.getCategories());
-            }
-        }
-        return favoriteGenres;
-    }
 
-    private Set<ObjectId> getFavoriteAuthors(String userId) {
-        // Lấy các tác giả yêu thích từ lịch sử đặt hàng và tìm kiếm
-        Set<ObjectId> favoriteAuthors = new HashSet<>();
-        List<Order> userOrders = orderRepository.findByUser(new ObjectId(userId));
-        for (Order order : userOrders) {
-            for (ObjectId bookId : order.getOrderItems()) {
-                Book book = bookRepository.findById(bookId).orElse(null);
-                if (book != null) {
-                    favoriteAuthors.addAll(book.getAuthors());
-                }
-            }
+        List<Book> preferredBooks = new ArrayList<>();
+        for (ObjectId categoryId : preferredCategoryIds) {
+            preferredBooks.addAll(bookRepository.findByCategoriesContains(categoryId));
         }
-        List<SearchHistory> searchHistories = searchHistoryRepository.findByUserId(userId);
-        for (SearchHistory searchHistory : searchHistories) {
-            List<Book> searchResultBooks = bookRepository.findByTitleContainingIgnoreCase(searchHistory.getSearchQuery());
-            for (Book book : searchResultBooks) {
-                favoriteAuthors.addAll(book.getAuthors());
-            }
+        for (ObjectId authorId : preferredAuthorIds) {
+            preferredBooks.addAll(bookRepository.findByAuthorsContains(authorId));
         }
-        return favoriteAuthors;
+        return preferredBooks.stream().limit(limit).collect(Collectors.toList());
     }
 }

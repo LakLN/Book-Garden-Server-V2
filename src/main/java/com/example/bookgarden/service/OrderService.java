@@ -51,7 +51,7 @@ public class OrderService {
             order.setUser(new ObjectId(userId));
             ModelMapper modelMapper = new ModelMapper();
             modelMapper.map(createOrderRequestDTO, order);
-            Optional<Address> optionalAddress = addressRepository.findByAddress(createOrderRequestDTO.getAddress());
+            Optional<Address> optionalAddress = addressRepository.findByNameAndPhoneNumberAndAddress(createOrderRequestDTO.getFullName(), createOrderRequestDTO.getPhone(), createOrderRequestDTO.getAddress());
             if (optionalAddress.isEmpty()){
                 Address newAddress = new Address();
                 newAddress.setAddress(createOrderRequestDTO.getAddress());
