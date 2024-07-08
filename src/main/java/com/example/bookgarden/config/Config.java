@@ -2,6 +2,7 @@ package com.example.bookgarden.config;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +17,7 @@ import java.util.Random;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletRequest;
-
+@Component
 public class Config {
     @Value("${client.host}")
     private String clientHost;

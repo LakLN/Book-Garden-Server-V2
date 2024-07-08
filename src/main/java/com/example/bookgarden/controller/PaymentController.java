@@ -102,12 +102,12 @@ public class PaymentController {
         paymentResponseDTO.setStatus("Success");
         paymentResponseDTO.setMessage("Thành công");
         paymentResponseDTO.setURL(paymentUrl);
+        System.out.println("vnp_ReturnUrl: " + Config.vnp_ReturnUrl);
         return ResponseEntity.ok(GenericResponse.builder()
                 .success(true)
                 .message("Tạo Thanh toán thành công")
                 .data(paymentResponseDTO)
                 .build());
-
     }
     @GetMapping("/callback")
     public ResponseEntity<GenericResponse> paymentCallback(@RequestParam (value = "vnp_ResponseCode") String responseCode){
