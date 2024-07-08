@@ -203,16 +203,18 @@ public class UserService {
                         return addressRepository.save(newAddress);
                     });
 
-            if (addressDTO.getIsDefault() && defaultAddressFound==false) {
+            if (addressDTO.getIsDefault() && !defaultAddressFound) {
                 defaultAddressFound = true;
                 addressEntity.setIsDefault(true);
             } else {
                 addressEntity.setIsDefault(false);
             }
+
             addressRepository.save(addressEntity); // Ensure the entity is saved with the correct default flag
             newAddresses.add(addressEntity);
         }
 
+        // Đảm bảo có ít nhất một địa chỉ mặc định nếu không có địa chỉ nào được đặt là mặc định
         if (!defaultAddressFound && !newAddresses.isEmpty()) {
             Address firstAddress = newAddresses.get(0);
             firstAddress.setIsDefault(true);
@@ -223,12 +225,14 @@ public class UserService {
         user.setAddresses(newAddressIds);
         User updatedUser = userRepository.save(user);
 
+        // Xóa các địa chỉ cũ không còn tồn tại
         for (ObjectId addressId : oldAddressIds) {
             if (!newAddressIds.contains(addressId)) {
                 addressRepository.deleteById(addressId.toString());
             }
         }
 
+        // Lấy danh sách các địa chỉ cập nhật
         List<Address> addresses = getAddressList(updatedUser.getAddresses());
 
         ModelMapper modelMapper = new ModelMapper();
@@ -243,6 +247,7 @@ public class UserService {
                 .data(userResponse)
                 .build());
     }
+
 
 
 

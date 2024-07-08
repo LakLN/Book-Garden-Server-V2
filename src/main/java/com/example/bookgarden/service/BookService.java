@@ -15,6 +15,7 @@ import org.jsoup.nodes.Entities;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import java.lang.reflect.Array;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -339,8 +341,8 @@ public class BookService {
 
             bookRepository.save(book);
             bookDetailRepository.save(bookDetail);
-
-            BookDetailDTO bookDetailDTO = convertToBookDetailDTO(book);
+            BookDTO bookDTO = updateBookCache(book);
+            BookDetailDTO bookDetailDTO = updateBookDetailCache(book);
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Cập nhật sách thành công")
@@ -353,6 +355,14 @@ public class BookService {
                     .data(e.getMessage())
                     .build());
         }
+    }
+    @CachePut(value = "bookDTOCache", key = "#bookId")
+    public BookDetailDTO updateBookDetailCache(Book book) {
+        return convertToBookDetailDTO(book);
+    }
+    @CachePut(value = "bookDTOCache", key = "#bookId")
+    public BookDTO updateBookCache(Book book) {
+        return convertToBookDTO(book);
     }
     public ResponseEntity<GenericResponse> deleteBook(String userId, String bookId) {
         try {
@@ -383,7 +393,8 @@ public class BookService {
                     .data(e.getMessage())
                     .build());
         }
-    }public ResponseEntity<GenericResponse> restoreBook(String userId, String bookId) {
+    }
+    public ResponseEntity<GenericResponse> restoreBook(String userId, String bookId) {
         try {
             checkAdminPermission(userId);
 

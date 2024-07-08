@@ -12,11 +12,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,8 +33,10 @@ public class OrderService {
     private OrderItemRepository orderItemRepository;
     @Autowired
     private CartItemRepository cartItemRepository;
+    private final ModelMapper modelMapper = new ModelMapper();
 
-    public ResponseEntity<GenericResponse> createOrder(String userId, CreateOrderRequestDTO createOrderRequestDTO){
+    @Transactional
+    public ResponseEntity<GenericResponse> createOrder(String userId, CreateOrderRequestDTO createOrderRequestDTO) {
         try {
             Optional<User> optionalUser = userRepository.findById(userId);
             if (optionalUser.isEmpty()) {
@@ -46,52 +46,23 @@ public class OrderService {
                         .data(null)
                         .build());
             }
+
             User user = optionalUser.get();
             Order order = new Order();
             order.setUser(new ObjectId(userId));
             ModelMapper modelMapper = new ModelMapper();
             modelMapper.map(createOrderRequestDTO, order);
-            Optional<Address> optionalAddress = addressRepository.findByNameAndPhoneNumberAndAddress(createOrderRequestDTO.getFullName(), createOrderRequestDTO.getPhone(), createOrderRequestDTO.getAddress());
-            if (optionalAddress.isEmpty()){
-                Address newAddress = new Address();
-                newAddress.setAddress(createOrderRequestDTO.getAddress());
-                addressRepository.save(newAddress);
-                List<ObjectId> addresses = user.getAddresses();
-                addresses.add(newAddress.getId());
-                user.setAddresses(addresses);
-                userRepository.save(user);
-            }
-            List<String> cartItems = createOrderRequestDTO.getCartItems();
 
-            List<ObjectId> cartItemObjectIds = cartItems.stream()
+            Address address = findOrCreateAddress(createOrderRequestDTO);
+            updateUserAddresses(user, address);
+
+            List<ObjectId> cartItemObjectIds = createOrderRequestDTO.getCartItems().stream()
                     .map(ObjectId::new)
                     .collect(Collectors.toList());
 
-            List<OrderItem> orderItems = cartItemRepository.findAllByIdIn(cartItemObjectIds).stream()
-                    .map(cartItem -> {
-                        OrderItem orderItem = new OrderItem();
-                        orderItem.setBook(cartItem.getBook());
-                        orderItem.setQuantity(cartItem.getQuantity());
+            List<OrderItem> orderItems = processCartItems(cartItemObjectIds);
 
-                        Book book = bookRepository.findById(cartItem.getBook()).get();
-                        int soldQuantity = book.getSoldQuantity() + cartItem.getQuantity();
-                        book.setSoldQuantity(soldQuantity);
-
-                        int stock = book.getStock() - cartItem.getQuantity();
-                        book.setStock(stock);
-
-                        bookRepository.save(book);
-
-                        return orderItemRepository.save(orderItem);
-                    })
-                    .collect(Collectors.toList());
-            List<CartItem> cartItemss = cartItemRepository.findAllByIdIn(cartItemObjectIds);
-            cartItemRepository.deleteAll(cartItemss);
-
-            List<ObjectId> orderItemIds = orderItems.stream()
-                    .map(OrderItem::getId)
-                    .collect(Collectors.toList());
-            order.setOrderItems(orderItemIds);
+            order.setOrderItems(orderItems.stream().map(OrderItem::getId).collect(Collectors.toList()));
             order.setStatus("PENDING");
             Order savedOrder = orderRepository.save(order);
 
@@ -109,6 +80,51 @@ public class OrderService {
                     .data(e.getMessage())
                     .build());
         }
+    }
+
+    private Address findOrCreateAddress(CreateOrderRequestDTO createOrderRequestDTO) {
+        Optional<Address> optionalAddress = addressRepository.findByNameAndPhoneNumberAndAddress(
+                createOrderRequestDTO.getFullName(),
+                createOrderRequestDTO.getPhone(),
+                createOrderRequestDTO.getAddress());
+
+        if (optionalAddress.isPresent()) {
+            return optionalAddress.get();
+        } else {
+            Address newAddress = new Address();
+            newAddress.setAddress(createOrderRequestDTO.getAddress());
+            return addressRepository.save(newAddress);
+        }
+    }
+
+    private void updateUserAddresses(User user, Address address) {
+        List<ObjectId> addresses = user.getAddresses();
+        if (!addresses.contains(address.getId())) {
+            addresses.add(address.getId());
+            user.setAddresses(addresses);
+            userRepository.save(user);
+        }
+    }
+
+    private List<OrderItem> processCartItems(List<ObjectId> cartItemObjectIds) {
+        List<CartItem> cartItems = cartItemRepository.findAllByIdIn(cartItemObjectIds);
+        List<OrderItem> orderItems = new ArrayList<>();
+
+        for (CartItem cartItem : cartItems) {
+            OrderItem orderItem = new OrderItem();
+            orderItem.setBook(cartItem.getBook());
+            orderItem.setQuantity(cartItem.getQuantity());
+
+            Book book = bookRepository.findById(cartItem.getBook()).orElseThrow(() -> new RuntimeException("Sách không tồn tại"));
+            book.setSoldQuantity(book.getSoldQuantity() + cartItem.getQuantity());
+            book.setStock(book.getStock() - cartItem.getQuantity());
+            bookRepository.save(book);
+
+            orderItems.add(orderItemRepository.save(orderItem));
+        }
+
+        cartItemRepository.deleteAll(cartItems);
+        return orderItems;
     }
 
     public ResponseEntity<GenericResponse> getUserOrders(String userId) {
@@ -281,11 +297,67 @@ public class OrderService {
                     .build());
         }
     }
+    public ResponseEntity<GenericResponse> cancelOrder(String userId, String orderId) {
+        try {
+            Optional<User> optionalUser = userRepository.findById(userId);
+            Optional<Order> optionalOrder = orderRepository.findById(new ObjectId(orderId));
+
+            if (optionalUser.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Người dùng không tồn tại")
+                        .data(null)
+                        .build());
+            }
+
+            if (optionalOrder.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy đơn hàng")
+                        .data(null)
+                        .build());
+            }
+
+            Order order = optionalOrder.get();
+
+            if (!order.getUser().equals(new ObjectId(userId))) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn chỉ có thể thao tác trên đơn hàng của mình")
+                        .data(null)
+                        .build());
+            }
+
+            if (!order.getStatus().toString().equals("PENDING")){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn chỉ có thể hủy đơn hàng chưa được xác nhận")
+                        .data(null)
+                        .build());
+            }z
+            order.setStatus("CANCELLED");
+            order = orderRepository.save(order);
+            OrderDTO orderDTO = convertToOrderDTO(order);
+
+            return ResponseEntity.status(HttpStatus.OK).body(GenericResponse.builder()
+                    .success(true)
+                    .message("Hủy đơn hàng thành công")
+                    .data(orderDTO)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi hủy đơn hàng: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
     @Cacheable("orderDTOCache")
     public OrderDTO convertToOrderDTO(Order order) {
         OrderDTO orderDTO = new OrderDTO();
-        ModelMapper modelMapper = new ModelMapper();
-        modelMapper.map(order, orderDTO);
+        modelMapper.map(order, orderDTO); // Sử dụng modelMapper chung
+
         orderDTO.set_id(order.getId().toString());
         orderDTO.setStatus(order.getStatus().toString());
 
@@ -298,16 +370,18 @@ public class OrderService {
                 .collect(Collectors.toMap(Book::getId, book -> book));
 
         List<OrderItemDTO> orderItemDTOs = orderItems.stream()
-                .map(orderItem -> convertToOrderItemDTO(orderItem, booksMap, modelMapper))
+                .map(orderItem -> convertToOrderItemDTO(orderItem, booksMap))
                 .collect(Collectors.toList());
 
         orderDTO.setOrderItems(orderItemDTOs);
         return orderDTO;
     }
+
     @Cacheable("orderItemDTOCache")
-    public OrderItemDTO convertToOrderItemDTO(OrderItem orderItem, Map<ObjectId, Book> booksMap, ModelMapper modelMapper) {
+    public OrderItemDTO convertToOrderItemDTO(OrderItem orderItem, Map<ObjectId, Book> booksMap) {
         OrderItemDTO orderItemDTO = new OrderItemDTO();
         modelMapper.map(orderItem, orderItemDTO);
+
         orderItemDTO.set_id(orderItem.getId().toString());
 
         Book book = booksMap.get(orderItem.getBook());
