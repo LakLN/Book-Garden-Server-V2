@@ -80,7 +80,8 @@ public class SecurityConfig{
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("https://dashboard-book-garden.web.app", "https://book-garden-reactjs.web.app", "http://localhost:3000"));
+        configuration.setAllowedOrigins(List.of("https://dashboard-book-garden.web.app", "https://book-garden-reactjs.web.app",
+                                                "http://localhost:3000", "https://garden-book-reactjs.web.app"));
         configuration.setAllowedMethods(List.of("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("*"));
