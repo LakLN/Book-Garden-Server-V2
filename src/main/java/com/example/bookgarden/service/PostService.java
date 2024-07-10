@@ -64,7 +64,60 @@ public class PostService {
                     .build());
         }
     }
+    public ResponseEntity<GenericResponse> editPost(String userId, String postId, PostCreateRequestDTO editPostRequest){
+        try {
+            Optional<User> optionalUser = userRepository.findById(userId);
+            if(optionalUser.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy người dùng")
+                        .data(null)
+                        .build());
+            }
+            Optional<Post> optionalPost = postRepository.findById(new ObjectId(postId));
+            if(optionalPost.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy bài viết")
+                        .data(null)
+                        .build());
+            }
+            if(optionalPost.get().getStatus().equals("Approved")){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn không thể chỉnh sửa bài viết đã được kiểm duyệt")
+                        .data(null)
+                        .build());
+            }
+            if(!optionalPost.get().getPostedBy().equals(userId)){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn chỉ có thể chỉnh sửa bài viết do mình tạo ra")
+                        .data(null)
+                        .build());
+            }
+            Post post = optionalPost.get();
+            post.setTitle(editPostRequest.getTitle());
+            post.setContent(editPostRequest.getContent());
+            if (!editPostRequest.getBookId().isEmpty()) {
+                post.setBook(new ObjectId(editPostRequest.getBookId()));
+            }
+            postRepository.save(post);
+            PostResponseDTO postResponseDTO = convertPostToDTO(post);
+            return ResponseEntity.status(HttpStatus.OK).body(GenericResponse.builder()
+                    .success(true)
+                    .message("Chỉnh sửa bài viết thành công!")
+                    .data(postResponseDTO)
+                    .build());
 
+        } catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Có lỗi xảy ra khi chỉnh sửa bài viết: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
     public ResponseEntity<GenericResponse> getAllApprovedPosts() {
         try {
             Sort sortByPostedDateDesc = Sort.by(Sort.Direction.DESC, "postedDate");
@@ -361,30 +414,31 @@ public class PostService {
         }
     }
 
-    private PostResponseDTO convertPostToDTO(Post post){
+    private PostResponseDTO convertPostToDTO(Post post) {
         ModelMapper modelMapper = new ModelMapper();
         PostResponseDTO postResponseDTO = modelMapper.map(post, PostResponseDTO.class);
+
         Optional<User> optionalUser = userRepository.findById(post.getPostedBy().toString());
-        if(optionalUser.isPresent()){
+        if (optionalUser.isPresent()) {
             UserPostDTO userPostDTO = modelMapper.map(optionalUser.get(), UserPostDTO.class);
             postResponseDTO.setPostedBy(userPostDTO);
         }
+
         Optional<Book> optionalBook = bookRepository.findById(post.getBook());
-        if(optionalBook.isPresent()){
+        if (optionalBook.isPresent()) {
             BookPostDTO bookPostDTO = modelMapper.map(optionalBook.get(), BookPostDTO.class);
             bookDetailRepository.findByBook(optionalBook.get().getId())
                     .ifPresent(bookDetail -> bookPostDTO.setImage(bookDetail.getImage()));
-
             postResponseDTO.setBook(bookPostDTO);
         }
-        System.out.println(optionalBook);
+
         List<ObjectId> commentIds = post.getComments();
-        System.out.println(commentIds);
         List<Comment> comments = commentRepository.findAllByIdIn(commentIds);
         List<CommentDTO> commentDTOs = comments.stream()
                 .map(comment -> commentService.convertCommentToDTO(comment))
                 .collect(Collectors.toList());
         postResponseDTO.setComments(commentDTOs);
+
         return postResponseDTO;
     }
 

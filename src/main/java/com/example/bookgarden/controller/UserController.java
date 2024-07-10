@@ -1,15 +1,20 @@
 package com.example.bookgarden.controller;
 
 import com.example.bookgarden.dto.*;
+import com.example.bookgarden.entity.Notification;
 import com.example.bookgarden.entity.SearchHistory;
 import com.example.bookgarden.exception.ItemNotFoundException;
+import com.example.bookgarden.repository.NotificationRepository;
 import com.example.bookgarden.security.JwtTokenProvider;
+import com.example.bookgarden.service.NotificationService;
 import com.example.bookgarden.service.SearchHistoryService;
 import com.example.bookgarden.service.UserService;
 import jakarta.validation.Valid;
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +23,7 @@ import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,7 +37,12 @@ public class UserController {
     private UserService userService;
     @Autowired
     private SearchHistoryService searchHistoryService;
-
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+    @Autowired
+    private NotificationRepository notificationRepository;
     //Get Profile
     @GetMapping("/profile")
     public ResponseEntity<GenericResponse> getProfile(@RequestHeader("Authorization") String authorizationHeader) {
@@ -159,5 +170,33 @@ public class UserController {
                     .data(e.getMessage())
                     .build());
         }
+    }
+    //Get notification
+    @GetMapping("/notifitions")
+    ResponseEntity<GenericResponse> getNotifications (@RequestHeader("Authorization") String authorizationHeader){
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        List<Notification> notifications = notificationService.getNotifications(userId);
+        return ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Lấy danh sách thông tin thông báo thành công")
+                .data(notifications)
+                .build());
+    }
+    @PostMapping("/notifitions/create")
+    public ResponseEntity<Notification> createNotification(@RequestBody Notification notification) {
+        Notification createdNotification = notificationService.createNotification(notification.getUserId(), notification.getTitle(), notification.getMessage());
+        messagingTemplate.convertAndSend("/topic/notifications/" + notification.getUserId(), createdNotification);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdNotification);
+    }
+    @PutMapping("/notifications/{notificationId}/read")
+    public ResponseEntity<GenericResponse> markAsRead(@PathVariable String notificationId) {
+        notificationService.markAsRead(new ObjectId(notificationId));
+        Optional<Notification> optionalNotification = notificationRepository.findById(new ObjectId(notificationId));
+        return ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Đánh dấu đã đọc thành công")
+                .data(optionalNotification)
+                .build());
     }
 }
