@@ -33,6 +33,8 @@ public class OrderService {
     private OrderItemRepository orderItemRepository;
     @Autowired
     private CartItemRepository cartItemRepository;
+    @Autowired
+    private NotificationService notificationService;
     private final ModelMapper modelMapper = new ModelMapper();
 
     @Transactional
@@ -67,7 +69,7 @@ public class OrderService {
             Order savedOrder = orderRepository.save(order);
 
             OrderDTO orderDTO = convertToOrderDTO(savedOrder);
-
+            notificationService.createNotification(userId, "Đơn hàng mới", "Đơn hàng của bạn đã được đặt thành công. Mã đơn hàng: " + savedOrder.getId());
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Đã tạo đơn hàng thành công")

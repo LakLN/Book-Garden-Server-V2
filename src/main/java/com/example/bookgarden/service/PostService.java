@@ -46,8 +46,11 @@ public class PostService {
             newPost.setTitle(postCreateRequestDTO.getTitle());
             newPost.setContent(postCreateRequestDTO.getContent());
             newPost.setPostedBy(new ObjectId(userId));
-            newPost.setBook(new ObjectId(postCreateRequestDTO.getBookId()));
-            newPost.setStatus("Pending");
+            if (postCreateRequestDTO.getBookId() != null) {
+                newPost.setBook(new ObjectId(postCreateRequestDTO.getBookId()));
+            } else {
+                newPost.setBook(null);
+            }newPost.setStatus("Pending");
 
             Post savedPost = postRepository.save(newPost);
             PostResponseDTO postResponseDTO = convertPostToDTO(savedPost);

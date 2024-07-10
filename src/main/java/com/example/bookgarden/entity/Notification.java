@@ -1,5 +1,6 @@
 package com.example.bookgarden.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +23,7 @@ public class Notification implements Serializable {
     private String userId;
     private String title;
     private String message;
-    private Date createdAt;
-    private boolean read;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
+    private Date createdAt = new Date();
+    private boolean read = false;
 }
