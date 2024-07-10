@@ -89,18 +89,21 @@ public class PostService {
                         .data(null)
                         .build());
             }
-            if(!optionalPost.get().getPostedBy().equals(userId)){
+            if(!optionalPost.get().getPostedBy().equals(new ObjectId(userId))){
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
                         .success(false)
                         .message("Bạn chỉ có thể chỉnh sửa bài viết do mình tạo ra")
                         .data(null)
                         .build());
             }
+
             Post post = optionalPost.get();
             post.setTitle(editPostRequest.getTitle());
             post.setContent(editPostRequest.getContent());
-            if (!editPostRequest.getBookId().isEmpty()) {
+            if (editPostRequest.getBookId() != null) {
                 post.setBook(new ObjectId(editPostRequest.getBookId()));
+            } else {
+                post.setBook(null);
             }
             postRepository.save(post);
             PostResponseDTO postResponseDTO = convertPostToDTO(post);
@@ -423,15 +426,15 @@ public class PostService {
             UserPostDTO userPostDTO = modelMapper.map(optionalUser.get(), UserPostDTO.class);
             postResponseDTO.setPostedBy(userPostDTO);
         }
-
-        Optional<Book> optionalBook = bookRepository.findById(post.getBook());
-        if (optionalBook.isPresent()) {
-            BookPostDTO bookPostDTO = modelMapper.map(optionalBook.get(), BookPostDTO.class);
-            bookDetailRepository.findByBook(optionalBook.get().getId())
-                    .ifPresent(bookDetail -> bookPostDTO.setImage(bookDetail.getImage()));
-            postResponseDTO.setBook(bookPostDTO);
+        if(post.getBook() != null) {
+            Optional<Book> optionalBook = bookRepository.findById(post.getBook());
+            if (optionalBook.isPresent()) {
+                BookPostDTO bookPostDTO = modelMapper.map(optionalBook.get(), BookPostDTO.class);
+                bookDetailRepository.findByBook(optionalBook.get().getId())
+                        .ifPresent(bookDetail -> bookPostDTO.setImage(bookDetail.getImage()));
+                postResponseDTO.setBook(bookPostDTO);
+            }
         }
-
         List<ObjectId> commentIds = post.getComments();
         List<Comment> comments = commentRepository.findAllByIdIn(commentIds);
         List<CommentDTO> commentDTOs = comments.stream()
