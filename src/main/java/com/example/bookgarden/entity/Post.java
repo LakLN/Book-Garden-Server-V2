@@ -24,4 +24,5 @@ public class Post implements Serializable {
     private String status;
     private ObjectId book;
     private List<ObjectId> comments;
+    private boolean deleted = false;
 }

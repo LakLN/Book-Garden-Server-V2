@@ -14,6 +14,7 @@ public class PostResponseDTO {
     private UserPostDTO postedBy;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
     private Date postedDate;
+    private Boolean deleted;
     private BookPostDTO book;
     private List<CommentDTO> comments;
 }

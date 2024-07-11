@@ -8,13 +8,17 @@ import com.example.bookgarden.repository.*;
 import org.bson.types.ObjectId;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +39,8 @@ public class OrderService {
     private CartItemRepository cartItemRepository;
     @Autowired
     private NotificationService notificationService;
+    @Value("${client.host}")
+    private String clientHost;
     private final ModelMapper modelMapper = new ModelMapper();
 
     @Transactional
@@ -69,18 +75,34 @@ public class OrderService {
             Order savedOrder = orderRepository.save(order);
 
             OrderDTO orderDTO = convertToOrderDTO(savedOrder);
-            notificationService.createNotification(userId, "Đơn hàng mới", "Đơn hàng của bạn đã được đặt thành công. Mã đơn hàng: " + savedOrder.getId());
+
+            String orderHistoryUrl = clientHost + "/profile/order-history";
+            notificationService.createNotification(userId, "Đơn hàng mới", "Đơn hàng của bạn đã được đặt thành công.", orderHistoryUrl);
+
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Đã tạo đơn hàng thành công")
                     .data(orderDTO)
                     .build());
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
                     .message("Lỗi khi tạo đơn hàng")
                     .data(e.getMessage())
                     .build());
+        }
+    }
+    @Scheduled(fixedRate = 300000) //5 minutes
+    public void cancelUnpaidOrders() {
+        List<Order> unpaidOrders = orderRepository.findByPaymentMethodAndPaymentStatus("ONLINE", "NOT_PAID");
+        for (Order order : unpaidOrders) {
+            long orderAgeInMinutes = TimeUnit.MILLISECONDS.toMinutes(new Date().getTime() - order.getOrderDate().getTime());
+            if (orderAgeInMinutes >= 30 && "PENDING".equals(order.getStatus().toString())) {
+                order.setStatus("CANCELLED");
+                orderRepository.save(order);
+                notificationService.createNotification(order.getUser().toString(), "Đơn hàng bị hủy", "Đơn hàng của bạn đã bị hủy do không thanh toán thành công trong thời gian quy định.", clientHost + "/profile/order-history");
+            }
         }
     }
 

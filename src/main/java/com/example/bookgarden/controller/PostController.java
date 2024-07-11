@@ -66,6 +66,13 @@ public class PostController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return postService.editPost(userId, postId, editPostRequestDTO);
     }
+    //Delete Post
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<GenericResponse> deletePost(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String postId){
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return postService.deletePost(userId, postId);
+    }
     @PostMapping("/{postId}/comment")
     public ResponseEntity<GenericResponse> commentPost(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String postId,
                                                        @RequestBody CommentRequestDTO commentRequestDTO){

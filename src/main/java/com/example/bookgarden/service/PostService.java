@@ -46,11 +46,12 @@ public class PostService {
             newPost.setTitle(postCreateRequestDTO.getTitle());
             newPost.setContent(postCreateRequestDTO.getContent());
             newPost.setPostedBy(new ObjectId(userId));
-            if (postCreateRequestDTO.getBookId() != null) {
+            if (postCreateRequestDTO.getBookId() != null && !postCreateRequestDTO.getBookId().isEmpty()) {
                 newPost.setBook(new ObjectId(postCreateRequestDTO.getBookId()));
             } else {
                 newPost.setBook(null);
-            }newPost.setStatus("Pending");
+            }
+            newPost.setStatus("Pending");
 
             Post savedPost = postRepository.save(newPost);
             PostResponseDTO postResponseDTO = convertPostToDTO(savedPost);
@@ -59,7 +60,13 @@ public class PostService {
                     .message("Bài viết đã được tạo thành công")
                     .data(postResponseDTO)
                     .build());
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                    .success(false)
+                    .message("BookId không hợp lệ")
+                    .data(e.getMessage())
+                    .build());
+        } catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
                     .message("Lỗi khi tạo bài viết")
@@ -103,7 +110,7 @@ public class PostService {
             Post post = optionalPost.get();
             post.setTitle(editPostRequest.getTitle());
             post.setContent(editPostRequest.getContent());
-            if (editPostRequest.getBookId() != null) {
+            if (editPostRequest.getBookId() != null && !editPostRequest.getBookId().isEmpty()) {
                 post.setBook(new ObjectId(editPostRequest.getBookId()));
             } else {
                 post.setBook(null);
@@ -116,7 +123,13 @@ public class PostService {
                     .data(postResponseDTO)
                     .build());
 
-        } catch (Exception e){
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                    .success(false)
+                    .message("BookId không hợp lệ")
+                    .data(e.getMessage())
+                    .build());
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
                     .message("Có lỗi xảy ra khi chỉnh sửa bài viết: " + e.getMessage())
@@ -124,11 +137,54 @@ public class PostService {
                     .build());
         }
     }
+    public ResponseEntity<GenericResponse> deletePost(String userId, String postId){
+        try{
+            Optional<User> optionalUser = userRepository.findById(userId);
+            if(optionalUser.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy người dùng")
+                        .data(null)
+                        .build());
+            }
+            Optional<Post> optionalPost = postRepository.findById(new ObjectId(postId));
+            if(optionalPost.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy bài viết")
+                        .data(null)
+                        .build());
+            }
+            Post post = optionalPost.get();
+            if (!post.getPostedBy().toString().equals(userId) && !optionalUser.get().getRole().equals("Admin")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn không có quyền xóa bài viết này!")
+                        .data(null)
+                        .build());
+            }
+
+            post.setDeleted(true);
+            postRepository.save(post);
+            return ResponseEntity.status(HttpStatus.OK).body(GenericResponse.builder()
+                    .success(true)
+                    .message("Xóa bài viết thành công!")
+                    .data(null)
+                    .build());
+        } catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Có lỗi xảy ra khi xóa bài viết: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
     public ResponseEntity<GenericResponse> getAllApprovedPosts() {
         try {
             Sort sortByPostedDateDesc = Sort.by(Sort.Direction.DESC, "postedDate");
 
-            List<Post> approvedPosts = postRepository.findAllByStatus("Approved", sortByPostedDateDesc);
+            List<Post> approvedPosts = postRepository.findAllByStatusAndDeletedFalse("Approved", sortByPostedDateDesc);
 
             List<PostResponseDTO> postResponseDTOs = approvedPosts.stream()
                     .map(this::convertPostToDTO)
@@ -278,7 +334,7 @@ public class PostService {
             }
             Sort sortByPostedDateDesc = Sort.by(Sort.Direction.DESC, "postedDate");
 
-            List<Post> approvedPosts = postRepository.findAllByPostedBy(new ObjectId(userId), sortByPostedDateDesc);
+            List<Post> approvedPosts = postRepository.findAllByPostedByAndDeletedFalse(new ObjectId(userId), sortByPostedDateDesc);
 
             List<PostResponseDTO> postResponseDTOs = approvedPosts.stream()
                     .map(this::convertPostToDTO)

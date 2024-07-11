@@ -54,11 +54,14 @@ public class NotificationService {
         }
     }
 
-    public Notification createNotification(String userId, String title, String message) {
+    public Notification createNotification(String userId, String title, String message, String url) {
         Notification notification = new Notification();
         notification.setUserId(userId);
         notification.setTitle(title);
         notification.setMessage(message);
+        if (url!=null) {
+            notification.setUrl(url);
+        }
         return notificationRepository.save(notification);
     }
     public ResponseEntity<GenericResponse> createNotificationForAll(String userId, NotificationRequestDTO notificationRequestDTO){
@@ -67,7 +70,7 @@ public class NotificationService {
             List<User> customers = userRepository.findAllCustomerUsers();
             System.out.println(customers);
             for (User customer : customers) {
-                Notification createdNotification = createNotification(customer.getId(), notificationRequestDTO.getTitle(), notificationRequestDTO.getMessage());
+                Notification createdNotification = createNotification(customer.getId(), notificationRequestDTO.getTitle(), notificationRequestDTO.getMessage(), "");
                 simpMessagingTemplate.convertAndSend("/topic/notifications/" + customer.getId(), createdNotification);
             }
             return ResponseEntity.status(HttpStatus.OK).body(GenericResponse.builder()

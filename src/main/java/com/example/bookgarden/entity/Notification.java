@@ -23,6 +23,7 @@ public class Notification implements Serializable {
     private String userId;
     private String title;
     private String message;
+    private String url;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
     private Date createdAt = new Date();
     private boolean read = false;

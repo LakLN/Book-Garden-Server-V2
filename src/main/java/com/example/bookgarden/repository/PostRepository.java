@@ -10,6 +10,6 @@ import java.util.List;
 
 @Repository
 public interface PostRepository extends MongoRepository<Post, ObjectId> {
-    List<Post> findAllByStatus(String status, Sort sort);
-    List<Post> findAllByPostedBy(ObjectId userId, Sort sort);
+    List<Post> findAllByStatusAndDeletedFalse(String status, Sort sort);
+    List<Post> findAllByPostedByAndDeletedFalse(ObjectId userId, Sort sort);
 }
