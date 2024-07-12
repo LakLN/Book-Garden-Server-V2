@@ -27,4 +27,5 @@ public class BookDetailDTO {
     private boolean isDeleted;
     private String pageNumbers;
     private List<ReviewDTO> reviews;
+    private int discountPercent = 0;
 }

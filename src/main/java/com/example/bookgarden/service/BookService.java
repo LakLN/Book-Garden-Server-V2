@@ -595,7 +595,11 @@ public class BookService {
         } else {
             bookDetailDTO.setReviews(Collections.emptyList());
         }
-
+        Optional<Discount> discountOptional = discountRepository.findByBookId(book.getId());
+        if (discountOptional.isPresent()){
+            int discountPercent = applyDiscountPercentage(discountOptional.get());
+            bookDetailDTO.setDiscountPercent(discountPercent);
+        }
         return bookDetailDTO;
     }
 
