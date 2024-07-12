@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,8 @@ public class OrderService {
     private CartItemRepository cartItemRepository;
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
     @Value("${client.host}")
     private String clientHost;
     private final ModelMapper modelMapper = new ModelMapper();
@@ -294,6 +297,11 @@ public class OrderService {
             }
             Order updatedOrder = orderRepository.save(order);
             OrderDTO orderDTO = convertToOrderDTO(updatedOrder);
+
+            String notificationMessage = "Trạng thái đơn hàng của bạn đã được cập nhật thành " + updateOrderStatusRequestDTO.getStatus();
+            Notification notification = notificationService.createNotification(order.getUser().toString(), "Cập nhật đơn hàng", notificationMessage, clientHost + "/profile/order-history");
+            messagingTemplate.convertAndSend("/topic/notifications/" + order.getUser().toString(), notification);
+
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Cập nhật trạng thái đơn hàng thành công")

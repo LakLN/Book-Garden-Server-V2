@@ -1,10 +1,7 @@
 package com.example.bookgarden.service;
 
 import com.example.bookgarden.dto.*;
-import com.example.bookgarden.entity.GoogleUserInfo;
-import com.example.bookgarden.entity.Role;
-import com.example.bookgarden.entity.Token;
-import com.example.bookgarden.entity.User;
+import com.example.bookgarden.entity.*;
 import com.example.bookgarden.repository.UserRepository;
 import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.security.UserDetail;
@@ -14,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,6 +47,10 @@ public class AuthService {
     private TokenService tokenService;
     @Autowired
     private UserDetailService userDetailService;
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
     @Value("${google.client.id}")
     private String clientId;
     @Value("${google.client.secret}")
@@ -57,6 +59,7 @@ public class AuthService {
     private String redirectUri;
     @Value("${google.token.uri}")
     private String tokenUri;
+
     private String userInfoUri = "https://www.googleapis.com/oauth2/v2/userinfo";
     public GenericResponse registerUser(RegisterDTO registerDTO) {
         Optional<User> existingUser = userRepository.findByEmail(registerDTO.getEmail());
@@ -77,7 +80,9 @@ public class AuthService {
 
         userRepository.save(newUser);
         otpService.sendRegisterOtp(registerDTO.getEmail());
-
+        String notificationMessage = "Chào mừng bạn đến với Book Garden! Cảm ơn bạn đã đăng ký, chúng tôi hy vọng bạn sẽ có những trải nghiệm tuyệt vời!";
+        Notification notification = notificationService.createNotification(newUser.getId().toString(), "Chào mừng", notificationMessage, "/");
+        messagingTemplate.convertAndSend("/topic/notifications/" + newUser.getId().toString(), notification);
         return GenericResponse.builder()
                 .success(true)
                 .message("Đăng ký thành công!")

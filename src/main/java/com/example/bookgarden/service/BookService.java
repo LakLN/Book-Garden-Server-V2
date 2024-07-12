@@ -14,12 +14,14 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Entities;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +58,12 @@ public class BookService {
     @Autowired
     private  ReviewService reviewService;
     @Autowired DiscountRepository discountRepository;
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+    @Value("${client.host}")
+    private String clientHost;
     private void checkAdminPermission(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
@@ -249,6 +257,13 @@ public class BookService {
             bookDetail.setBook(book.getId());
             bookDetailRepository.save(bookDetail);
             BookDetailDTO bookDetailDTO = convertToBookDetailDTO(newBook);
+            String notificationMessage = "Một quyển sách mới đã được thêm vào: " + book.getTitle();
+            List<User> users = userRepository.findAllCustomerUsers();
+            for (User user : users) {
+                Notification notification = notificationService.createNotification(user.getId().toString(), "Sách mới", notificationMessage, clientHost +"/book-detail/" + newBook.getId().toString());
+                messagingTemplate.convertAndSend("/topic/notifications/" + user.getId().toString(), notification);
+            }
+
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Thêm sách thành công")
