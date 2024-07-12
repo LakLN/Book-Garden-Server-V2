@@ -438,4 +438,22 @@ public class OrderService {
             throw new ForbiddenException("Người dùng không tồn tại");
         }
     }
+
+    public List<CustomerOrderCountDTO> getTopCustomers() {
+        List<CustomerOrderCount> topCustomers = orderRepository.findTopCustomers();
+        return topCustomers.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    private CustomerOrderCountDTO convertToDTO(CustomerOrderCount customerOrderCount) {
+        CustomerOrderCountDTO dto = new CustomerOrderCountDTO();
+        dto.setUserId(customerOrderCount.getUserId().toString());
+        dto.setOrderCount(customerOrderCount.getOrderCount());
+
+        userRepository.findById(customerOrderCount.getUserId().toString()).ifPresent(user -> {
+            dto.setFullName(user.getFullName());
+            dto.setEmail(user.getEmail());
+            dto.setAvatar(user.getAvatar());
+        });
+        return dto;
+    }
 }

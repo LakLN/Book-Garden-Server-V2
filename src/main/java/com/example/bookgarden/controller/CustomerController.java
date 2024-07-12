@@ -6,6 +6,7 @@ import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.service.*;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +30,7 @@ public class CustomerController {
     private BookService bookService;
     @Autowired
     private RecommendationService recommendationService;
-    @Autowired
-    private BookRepository bookRepository;
+
     //Get cart
     @GetMapping("/cart")
     public ResponseEntity<GenericResponse> getCart(@RequestHeader("Authorization") String authorizationHeader) {
@@ -116,6 +116,25 @@ public class CustomerController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         List<BookDTO> recommendations = recommendationService.recommendBooks(userId);
         return ResponseEntity.ok(recommendations);
+    }
+
+    //Top Order Customers
+    @GetMapping("/top-order")
+    public ResponseEntity<GenericResponse> getTopCustomers() {
+        try {
+            List<CustomerOrderCountDTO> topCustomers = orderService.getTopCustomers();
+            return ResponseEntity.ok(GenericResponse.builder()
+                    .success(true)
+                    .message("Lấy danh sách khách hàng mua nhiều nhất thành công")
+                    .data(topCustomers)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi lấy danh sách khách hàng mua nhiều nhất")
+                    .data(e.getMessage())
+                    .build());
+        }
     }
 
 }

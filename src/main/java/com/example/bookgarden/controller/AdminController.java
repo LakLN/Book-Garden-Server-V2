@@ -12,6 +12,7 @@ import com.example.bookgarden.security.JwtTokenProvider;
 import com.example.bookgarden.service.*;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.BindingResult;
@@ -101,50 +102,74 @@ public class AdminController{
     }
 
     @PostMapping("/register-manager")
-    public ResponseEntity<?> registerManager(@Valid @RequestBody RegisterDTO registerDTO, BindingResult bindingResult) {
-        if (bindingResult.hasErrors()) {
-            List<ObjectError> errors = bindingResult.getAllErrors();
-            List<String> errorMessages = new ArrayList<>();
-            for (ObjectError error : errors) {
-                String errorMessage = error.getDefaultMessage();
-                errorMessages.add(errorMessage);
+    public ResponseEntity<?> registerManager(@RequestHeader("Authorization") String authorizationHeader,
+                                             @Valid @RequestBody RegisterDTO registerDTO, BindingResult bindingResult) {
+        try {
+            String token = authorizationHeader.substring(7);
+            String userId = jwtTokenProvider.getUserIdFromJwt(token);
+
+            if (!isAdmin(userId)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn không có quyền thực hiện chức năng này")
+                        .data(null)
+                        .build());
             }
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Dữ liệu đầu vào không hợp lệ")
-                    .data(errorMessages)
+            if (bindingResult.hasErrors()) {
+                List<ObjectError> errors = bindingResult.getAllErrors();
+                List<String> errorMessages = new ArrayList<>();
+                for (ObjectError error : errors) {
+                    String errorMessage = error.getDefaultMessage();
+                    errorMessages.add(errorMessage);
+                }
+                return ResponseEntity.status(400).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Dữ liệu đầu vào không hợp lệ")
+                        .data(errorMessages)
+                        .build());
+            }
+            if (!registerDTO.getPassWord().equals(registerDTO.getConfirmPassWord())) {
+                return ResponseEntity.status(400).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Mật khẩu nhắc lại không khớp")
+                        .data(null)
+                        .build());
+            }
+            Optional<User> existingUser = userRepository.findByEmail(registerDTO.getEmail());
+            if (existingUser.isPresent()) {
+                return ResponseEntity.status(400).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Email đã tồn tại trong hệ thống")
+                        .data(null)
+                        .build());
+            }
+            User newUser = new User();
+            newUser.setFullName(registerDTO.getFullName());
+            newUser.setPassWord(passwordEncoder.encode(registerDTO.getPassWord()));
+            newUser.setEmail(registerDTO.getEmail());
+            newUser.setPhone(registerDTO.getPhone());
+
+            Role userRole = roleService.findByRoleName("Manager");
+            newUser.setRole(userRole.getRoleName());
+
+            userRepository.save(newUser);
+            OTPService.sendRegisterOtp(registerDTO.getEmail());
+            return ResponseEntity.ok().body(GenericResponse.builder()
+                    .success(true)
+                    .message("Đăng ký thành công!")
+                    .data("")
                     .build());
-        }
-        if (!registerDTO.getPassWord().equals(registerDTO.getConfirmPassWord())) {
-            return ResponseEntity.status(400).body(GenericResponse.builder()
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
-                    .message("Mật khẩu nhắc lại không khớp")
+                    .message("Lỗi khi thực hiện đăng ký tài khoản cho Manager: " + e.getMessage())
                     .data(null)
                     .build());
         }
-        Optional<User> existingUser = userRepository.findByEmail(registerDTO.getEmail());
-        if (existingUser.isPresent()) {
-            return ResponseEntity.status(400).body(GenericResponse.builder()
-                    .success(false)
-                    .message("Email đã tồn tại trong hệ thống")
-                    .data(null)
-                    .build());
-        }
-        User newUser = new User();
-        newUser.setFullName(registerDTO.getFullName());
-        newUser.setPassWord(passwordEncoder.encode(registerDTO.getPassWord()));
-        newUser.setEmail(registerDTO.getEmail());
-        newUser.setPhone(registerDTO.getPhone());
+    }
 
-        Role userRole = roleService.findByRoleName("Manager");
-        newUser.setRole(userRole.getRoleName());
-
-        userRepository.save(newUser);
-        OTPService.sendRegisterOtp(registerDTO.getEmail());
-        return ResponseEntity.ok().body(GenericResponse.builder()
-                .success(true)
-                .message("Đăng ký thành công!")
-                .data("")
-                .build());
+    public boolean isAdmin(String userId) {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        return optionalUser.isPresent() && "Admin".equals(optionalUser.get().getRole());
     }
 }
