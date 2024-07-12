@@ -26,9 +26,6 @@ public interface BookRepository extends MongoRepository<Book, ObjectId> {
     List<Book> findByCategoriesContains(ObjectId categoryId);
 
     List<Book> findByAuthorsContains(ObjectId authorId);
-
     List<Book> findTop10ByOrderBySoldQuantityDesc();
-
-//    List<Book> findTopByOrderByAverageRatingDesc();
 
 }

@@ -514,7 +514,7 @@ public class BookService {
 
         List<ObjectId> authorIds = book.getAuthors();
         if (authorIds != null && !authorIds.isEmpty()) {
-            List<Author> authors = authorRepository.findAllByIdIn(authorIds);
+            List<Author> authors = authorRepository.findAllByIdInAndIsDeletedFalse(authorIds);
             List<AuthorDTO> authorDTOs = authors.stream()
                     .map(author -> modelMapper.map(author, AuthorDTO.class))
                     .collect(Collectors.toList());
@@ -561,7 +561,7 @@ public class BookService {
 
         List<ObjectId> authorIds = book.getAuthors();
         if (authorIds != null && !authorIds.isEmpty()) {
-            List<Author> authors = authorRepository.findAllByIdIn(authorIds);
+            List<Author> authors = authorRepository.findAllByIdInAndIsDeletedFalse(authorIds);
             List<AuthorDTO> authorDTOs = authors.stream()
                     .map(author -> modelMapper.map(author, AuthorDTO.class))
                     .collect(Collectors.toList());
@@ -607,7 +607,7 @@ public class BookService {
     }
 
     public Author findOrCreateAuthor(String authorName, Book book) {
-        Optional<Author> optionalAuthor = authorRepository.findByAuthorName(authorName);
+        Optional<Author> optionalAuthor = authorRepository.findByAuthorNameAndIsDeletedFalse(authorName);
         Author author = optionalAuthor.orElseGet(() -> authorRepository.save(new Author(authorName)));
         List<ObjectId> books = author.getBooks();
         books.add((book.getId()));

@@ -24,7 +24,7 @@ public class Author implements Serializable {
     private String authorName;
 
     private List<ObjectId> books;
-
+    private Boolean isDeleted = false;
     public Author(String authorName) {
         this.authorName = authorName;
         this.books = new ArrayList<>();

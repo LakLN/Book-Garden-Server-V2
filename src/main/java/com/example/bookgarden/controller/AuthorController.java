@@ -74,4 +74,11 @@ public class AuthorController {
         }
         return authorService.updateAuthor(userId, authorId, updateAuthorRequestDTO);
     }
+    @DeleteMapping("/{authorId}")
+    public ResponseEntity<GenericResponse> deleteAuthor(@RequestHeader("Authorization") String authorizationHeader,
+                                                        @PathVariable String authorId) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return authorService.deleteAuthor(userId, authorId);
+    }
 }

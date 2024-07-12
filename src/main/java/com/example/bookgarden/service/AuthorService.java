@@ -3,17 +3,14 @@ package com.example.bookgarden.service;
 import com.example.bookgarden.dto.*;
 import com.example.bookgarden.entity.Author;
 import com.example.bookgarden.entity.Book;
-import com.example.bookgarden.entity.Category;
 import com.example.bookgarden.entity.User;
 import com.example.bookgarden.exception.ForbiddenException;
 import com.example.bookgarden.repository.AuthorRepository;
 import com.example.bookgarden.repository.BookRepository;
 import com.example.bookgarden.repository.UserRepository;
 import org.bson.types.ObjectId;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.jms.JmsProperties;
-import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -86,10 +83,11 @@ public class AuthorService {
                     .build());
         }
     }
+    @CacheEvict(value = "authorDTOCache", allEntries = true)
     public ResponseEntity<GenericResponse> updateAuthor(String userId, String authorId, UpdateAuthorRequestDTO updateAuthorRequestDTO) {
         try {
             checkAdminAndManagerPermission(userId);
-            Optional<Author> optionalAuthor = authorRepository.findById(new ObjectId(authorId));
+            Optional<Author> optionalAuthor = authorRepository.findById(authorId);
             if (optionalAuthor.isPresent()) {
                 Author author = optionalAuthor.get();
                 author.setAuthorName(updateAuthorRequestDTO.getAuthorName());
@@ -123,11 +121,11 @@ public class AuthorService {
                     .build());
         }
     }
-
+    @CacheEvict(value = "authorDTOCache", allEntries = true)
     public ResponseEntity<GenericResponse> addAuthor(String userId, UpdateAuthorRequestDTO addAuthorRequestDTO){
         try {
             checkAdminAndManagerPermission(userId);
-            Optional<Author> existingAuthor = authorRepository.findByAuthorName(addAuthorRequestDTO.getAuthorName());
+            Optional<Author> existingAuthor = authorRepository.findByAuthorNameAndIsDeletedFalse(addAuthorRequestDTO.getAuthorName());
             if (existingAuthor.isPresent()){
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
                         .success(false)
@@ -151,6 +149,44 @@ public class AuthorService {
                     .success(false)
                     .message("Lỗi khi thêm danh mục")
                     .data(e.getMessage())
+                    .build());
+        }
+    }
+    @CacheEvict(value = "authorDTOCache", allEntries = true)
+    public ResponseEntity<GenericResponse> deleteAuthor(String userId, String authorId) {
+        try {
+            checkAdminPermission(userId);
+            Optional<Author> authorOptional = authorRepository.findByIdAndIsDeletedFalse(new ObjectId(authorId));
+            if (authorOptional.isPresent()) {
+                Author author = authorOptional.get();
+                author.setIsDeleted(true);
+
+                List<Book> books = bookRepository.findByAuthorsContains(new ObjectId(authorId));
+
+                for (Book book : books) {
+                    book.setDeleted(true);
+                    bookRepository.save(book);
+                }
+
+                authorRepository.save(author);
+
+                return ResponseEntity.ok(GenericResponse.builder()
+                        .success(true)
+                        .message("Xóa tác giả thành công")
+                        .data(null)
+                        .build());
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy tác giả")
+                        .data(null)
+                        .build());
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi xóa tác giả: " + e.getMessage())
+                    .data(null)
                     .build());
         }
     }

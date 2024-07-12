@@ -18,10 +18,12 @@ public class OrderController {
     JwtTokenProvider jwtTokenProvider;
     //Get All Orders
     @GetMapping
-    public ResponseEntity<GenericResponse> getAllOrders(@RequestHeader("Authorization") String authorizationHeader){
+    public ResponseEntity<GenericResponse> getAllOrders(@RequestHeader("Authorization") String authorizationHeader,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        @RequestParam(defaultValue = "10") int size) {
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
-        return orderService.getAllOrders(userId);
+        return orderService.getAllOrders(userId, page-1, size);
     }
     //Get All Orders
     @GetMapping("/{orderId}")

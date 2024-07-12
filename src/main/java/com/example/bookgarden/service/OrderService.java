@@ -10,6 +10,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -180,18 +183,39 @@ public class OrderService {
         }
     }
 
-    public ResponseEntity<GenericResponse> getAllOrders(String userId){
+    @Cacheable("orderDTOCache")
+    public ResponseEntity<GenericResponse> getAllOrders(String userId, int page, int size) {
         try {
-            checkAdminAndManagerPermission(userId);
-            List<Order> orders = orderRepository.findAll();
-            List<OrderDTO> orderDTOs = orders.stream()
+            Optional<User> optionalUser = userRepository.findById(userId);
+            if (optionalUser.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy người dùng")
+                        .data(null)
+                        .build());
+            }
+
+            Page<Order> ordersPage;
+            Pageable pageable = PageRequest.of(page, size);
+            if ("Admin".equals(optionalUser.get().getRole()) || "Manager".equals(optionalUser.get().getRole())) {
+                ordersPage = orderRepository.findAll(pageable);
+            } else {
+                ordersPage = orderRepository.findAllByUser(new ObjectId(userId), pageable);
+            }
+
+            List<OrderDTO> orderDTOs = ordersPage.stream()
                     .map(this::convertToOrderDTO)
                     .collect(Collectors.toList());
+
+            PageResponse<OrderDTO> response = new PageResponse<>();
+            response.setContent(orderDTOs);
+            response.setTotalPages(ordersPage.getTotalPages());
+            response.setTotalElements(ordersPage.getTotalElements());
 
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Lấy danh sách đơn hàng thành công")
-                    .data(orderDTOs)
+                    .data(response)
                     .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()

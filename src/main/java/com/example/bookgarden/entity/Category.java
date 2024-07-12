@@ -24,7 +24,7 @@ public class Category implements Serializable {
     private String categoryName;
 
     private List<ObjectId> books;
-
+    private boolean deleted = false;
     public Category(String categoryName) {
         this.categoryName = categoryName;
         this.books = new ArrayList<>();

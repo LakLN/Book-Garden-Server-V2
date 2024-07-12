@@ -166,12 +166,14 @@ public class CategoryService {
                         .data(null)
                         .build());
             }
-            Optional<Category> categoryOptional = categoryRepository.findById(categoryId);
+
+            Optional<Category> categoryOptional = categoryRepository.findById(new ObjectId(categoryId));
             if (categoryOptional.isPresent()) {
                 Category category = categoryOptional.get();
-                List<Book> books = bookRepository.findAllById(category.getBooks());
 
-                books.forEach(book -> {
+                List<Book> books = bookRepository.findByCategoriesContains(new ObjectId(categoryId));
+
+                for (Book book : books) {
                     book.getCategories().remove(category.getId());
                     if (book.getCategories().isEmpty()) {
                         Category uncategorizedCategory = categoryRepository.findByCategoryName("Chưa phân loại")
@@ -183,7 +185,7 @@ public class CategoryService {
                         book.getCategories().add(uncategorizedCategory.getId());
                     }
                     bookRepository.save(book);
-                });
+                }
 
                 categoryRepository.deleteById(categoryId);
 
@@ -207,6 +209,7 @@ public class CategoryService {
                     .build());
         }
     }
+
     private CategoryResponseDTO convertToCategoryDTO(Category category) {
         CategoryResponseDTO categoryResponseDTO = new CategoryResponseDTO();
         categoryResponseDTO.setId(category.getId().toString());

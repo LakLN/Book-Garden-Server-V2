@@ -151,7 +151,8 @@ public class AdminController{
 
             Role userRole = roleService.findByRoleName("Manager");
             newUser.setRole(userRole.getRoleName());
-
+            newUser.setIsActive(true);
+            newUser.setIsVerified(true);
             userRepository.save(newUser);
             OTPService.sendRegisterOtp(registerDTO.getEmail());
             return ResponseEntity.ok().body(GenericResponse.builder()
