@@ -1,5 +1,6 @@
 package com.example.bookgarden.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,10 +23,11 @@ public class BookDetailDTO {
     private String isbn;
     private String image;
     private String publisher;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private Date publishedDate;
     private String language;
     private boolean isDeleted;
-    private String pageNumbers;
+    private int pageNumbers;
     private List<ReviewDTO> reviews;
     private int discountPercent = 0;
 }

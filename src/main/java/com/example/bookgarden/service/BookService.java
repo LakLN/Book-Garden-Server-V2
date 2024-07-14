@@ -286,6 +286,8 @@ public class BookService {
         }
     }
 
+
+
     private List<Category> getCategoriesFromString(String categoriesStr, Book book) {
         String[] categoryArray = categoriesStr.replaceAll("[\\[\\]]", "").split(",");
         return Arrays.stream(categoryArray)
@@ -564,12 +566,16 @@ public class BookService {
         bookDetailDTO.set_id(book.getId().toString());
 
         Optional<BookDetail> bookDetailOptional = bookDetailRepository.findByBook(book.getId());
-        bookDetailOptional.ifPresent(bookDetail -> {
+        if (bookDetailOptional.isPresent()) {
+            BookDetail bookDetail = bookDetailOptional.get();
             bookDetailDTO.setDescription(bookDetail.getDescription());
             bookDetailDTO.setIsbn(bookDetail.getIsbn());
             bookDetailDTO.setImage(bookDetail.getImage());
             bookDetailDTO.setPublisher(bookDetail.getPublisher());
-        });
+            bookDetailDTO.setPageNumbers(bookDetail.getPageNumbers());
+            bookDetailDTO.setPublishedDate(bookDetail.getPublishedDate());
+            bookDetailDTO.setLanguage(bookDetail.getLanguage());
+        }
 
         List<ObjectId> categoryIds = book.getCategories();
         if (categoryIds != null && !categoryIds.isEmpty()) {
@@ -603,13 +609,16 @@ public class BookService {
         } else {
             bookDetailDTO.setReviews(Collections.emptyList());
         }
+
         Optional<Discount> discountOptional = discountRepository.findByBookId(book.getId());
-        if (discountOptional.isPresent()){
+        if (discountOptional.isPresent()) {
             int discountPercent = applyDiscountPercentage(discountOptional.get());
             bookDetailDTO.setDiscountPercent(discountPercent);
         }
+
         return bookDetailDTO;
     }
+
 
 
     private ReviewDTO convertReviewToDTO(Review review){
