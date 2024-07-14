@@ -66,7 +66,7 @@ public class BookController {
     //Add book
     @PostMapping("/add")
     public ResponseEntity<?> addBook(@RequestHeader("Authorization") String authorizationHeader, @Valid @ModelAttribute AddBookRequestDTO addBookRequestDTO,
-                                     MultipartHttpServletRequest imageRequest, BindingResult bindingResult){
+                                     MultipartHttpServletRequest imageRequest, BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
             List<ObjectError> errors = bindingResult.getAllErrors();
             List<String> errorMessages = new ArrayList<>();

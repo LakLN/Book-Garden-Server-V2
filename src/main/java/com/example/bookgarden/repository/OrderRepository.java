@@ -6,6 +6,7 @@ import com.example.bookgarden.entity.User;
 import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.repository.Aggregation;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
@@ -30,4 +31,7 @@ public interface OrderRepository extends MongoRepository<Order, ObjectId> {
     List<CustomerOrderCount> findTopCustomers();
     Page<Order> findAllByUser(ObjectId userId, Pageable pageable);
     Page<Order> findAll(Pageable pageable);
+
+    List<Order> findAll(Sort sort);
+    List<Order> findAllByUser(ObjectId userId, Sort sort);
 }

@@ -214,7 +214,7 @@ public class BookService {
                     .build());
         }
     }
-    public ResponseEntity<GenericResponse> addBook(String userId, AddBookRequestDTO addBookRequestDTO, MultipartHttpServletRequest imageRequest){
+    public ResponseEntity<GenericResponse> addBook(String userId, AddBookRequestDTO addBookRequestDTO, MultipartHttpServletRequest imageRequest) {
         try {
             checkAdminAndManagerPermission(userId);
 
@@ -245,6 +245,12 @@ public class BookService {
                             .data(null)
                             .build());
                 }
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Vui lòng tải lên ảnh mô tả sản phẩm.")
+                        .data(null)
+                        .build());
             }
 
             List<Category> bookCategories = getCategoriesFromString(addBookRequestDTO.getCategories(), book);
@@ -257,10 +263,11 @@ public class BookService {
             bookDetail.setBook(book.getId());
             bookDetailRepository.save(bookDetail);
             BookDetailDTO bookDetailDTO = convertToBookDetailDTO(newBook);
+
             String notificationMessage = "Một quyển sách mới đã được thêm vào: " + book.getTitle();
             List<User> users = userRepository.findAllCustomerUsers();
             for (User user : users) {
-                Notification notification = notificationService.createNotification(user.getId().toString(), "Sách mới", notificationMessage, clientHost +"/book-detail/" + newBook.getId().toString());
+                Notification notification = notificationService.createNotification(user.getId().toString(), "Sách mới", notificationMessage, clientHost + "/book-detail/" + newBook.getId().toString());
                 messagingTemplate.convertAndSend("/topic/notifications/" + user.getId().toString(), notification);
             }
 
@@ -278,6 +285,7 @@ public class BookService {
                     .build());
         }
     }
+
     private List<Category> getCategoriesFromString(String categoriesStr, Book book) {
         String[] categoryArray = categoriesStr.replaceAll("[\\[\\]]", "").split(",");
         return Arrays.stream(categoryArray)

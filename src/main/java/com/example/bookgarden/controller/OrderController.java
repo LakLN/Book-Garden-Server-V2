@@ -25,7 +25,7 @@ public class OrderController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return orderService.getAllOrders(userId, page-1, size);
     }
-    //Get All Orders
+    //Get Order by ID
     @GetMapping("/{orderId}")
     public ResponseEntity<GenericResponse> getOrderById(@RequestHeader("Authorization") String authorizationHeader, @PathVariable String orderId){
         String token = authorizationHeader.substring(7);
@@ -39,5 +39,12 @@ public class OrderController {
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return orderService.updateOrderStatus(userId, orderId, updateOrderStatusRequestDTO);
+    }
+    //Get All
+    @GetMapping("/all")
+    public ResponseEntity<GenericResponse> getAllOrdersWithoutPaging(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return orderService.getAllOrdersWithoutPaging(userId);
     }
 }

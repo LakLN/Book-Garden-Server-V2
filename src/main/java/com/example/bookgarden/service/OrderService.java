@@ -9,10 +9,13 @@ import org.bson.types.ObjectId;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -50,6 +53,10 @@ public class OrderService {
     private final ModelMapper modelMapper = new ModelMapper();
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
     public ResponseEntity<GenericResponse> createOrder(String userId, CreateOrderRequestDTO createOrderRequestDTO) {
         try {
             Optional<User> optionalUser = userRepository.findById(userId);
@@ -100,6 +107,10 @@ public class OrderService {
         }
     }
     @Scheduled(fixedRate = 300000) //5 minutes
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
     public void cancelUnpaidOrders() {
         List<Order> unpaidOrders = orderRepository.findByPaymentMethodAndPaymentStatus("ONLINE", "NOT_PAID");
         for (Order order : unpaidOrders) {
@@ -199,7 +210,9 @@ public class OrderService {
             }
 
             Page<Order> ordersPage;
-            Pageable pageable = PageRequest.of(page, size);
+            Sort sortByOrderDateDesc = Sort.by(Sort.Direction.DESC, "orderDate");
+            Pageable pageable = PageRequest.of(page, size, sortByOrderDateDesc);
+
             if ("Admin".equals(optionalUser.get().getRole()) || "Manager".equals(optionalUser.get().getRole())) {
                 ordersPage = orderRepository.findAll(pageable);
             } else {
@@ -228,7 +241,45 @@ public class OrderService {
                     .build());
         }
     }
+    @Cacheable("orderDTOCache")
+    public ResponseEntity<GenericResponse> getAllOrdersWithoutPaging(String userId) {
+        try {
+            Optional<User> optionalUser = userRepository.findById(userId);
+            if (optionalUser.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy người dùng")
+                        .data(null)
+                        .build());
+            }
 
+            List<Order> orders;
+            Sort sortByOrderDateDesc = Sort.by(Sort.Direction.DESC, "orderDate");
+
+            if ("Admin".equals(optionalUser.get().getRole()) || "Manager".equals(optionalUser.get().getRole())) {
+                orders = orderRepository.findAll(sortByOrderDateDesc);
+            } else {
+                orders = orderRepository.findAllByUser(new ObjectId(userId), sortByOrderDateDesc);
+            }
+
+            List<OrderDTO> orderDTOs = orders.stream()
+                    .map(this::convertToOrderDTO)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(GenericResponse.builder()
+                    .success(true)
+                    .message("Lấy danh sách đơn hàng thành công")
+                    .data(orderDTOs)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi lấy danh sách đơn hàng")
+                    .data(e.getMessage())
+                    .build());
+        }
+    }
+    @Cacheable("orderDTOCache")
     public ResponseEntity<GenericResponse> getOrderById(String userId, String orderId) {
         try {
             Optional<User> optionalUser = userRepository.findById(userId);
@@ -269,7 +320,11 @@ public class OrderService {
                     .build());
         }
     }
-
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
     public ResponseEntity<GenericResponse> updateOrderStatus(String userId, String orderId, UpdateOrderStatusRequestDTO updateOrderStatusRequestDTO) {
         try {
             checkAdminAndManagerPermission(userId);
@@ -315,7 +370,11 @@ public class OrderService {
                     .build());
         }
     }
-
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
     public ResponseEntity<GenericResponse> handlePaymentCallback(PaymentCallBackRequestDTO paymentCallBackRequestDTO){
         try {
             Optional<Order> optionalOrder = orderRepository.findById(new ObjectId(paymentCallBackRequestDTO.getOrderId()));
@@ -353,6 +412,11 @@ public class OrderService {
                     .build());
         }
     }
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
     public ResponseEntity<GenericResponse> cancelOrder(String userId, String orderId) {
         try {
             Optional<User> optionalUser = userRepository.findById(userId);
