@@ -11,9 +11,9 @@ import java.util.Optional;
 
 @Repository
 public interface CategoryRepository extends MongoRepository<Category, String> {
+    @Cacheable(value = "categoryCache", key = "#p0")
     Optional<Category> findById(ObjectId objectId);
+    @Cacheable(value = "categoryNameCache", key = "#p0")
     Optional<Category> findByCategoryName(String categoryName);
-
-    @Cacheable("categories")
     List<Category> findAllByIdIn(List<ObjectId> ids);
 }

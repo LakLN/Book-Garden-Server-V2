@@ -1,15 +1,21 @@
 package com.example.bookgarden.service;
 
+import com.example.bookgarden.dto.BookDTO;
 import com.example.bookgarden.dto.DiscountDTO;
 import com.example.bookgarden.dto.GenericResponse;
+import com.example.bookgarden.entity.Book;
 import com.example.bookgarden.entity.Discount;
 import com.example.bookgarden.entity.User;
 import com.example.bookgarden.exception.AccessDeniedException;
 import com.example.bookgarden.exception.NotFoundException;
+import com.example.bookgarden.repository.BookRepository;
 import com.example.bookgarden.repository.DiscountRepository;
 import com.example.bookgarden.repository.UserRepository;
 import org.bson.types.ObjectId;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -17,6 +23,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class DiscountService {
@@ -25,6 +32,11 @@ public class DiscountService {
     private DiscountRepository discountRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private BookService bookService;
+    @Autowired
+    private BookRepository bookRepository;
+
     private void checkManagerAndAdminPermission(String userId){
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
@@ -56,7 +68,25 @@ public class DiscountService {
                     .build());
         }
     }
+    @Cacheable("discountedBooksCache")
+    public ResponseEntity<GenericResponse> getAllDiscountedBooks() {
+        List<Discount> discounts = discountRepository.findAll();
+        List<Book> discountedBooks = discounts.stream()
+                .map(discount -> bookRepository.findById(discount.getBookId()).orElse(null))
+                .filter(book -> book != null && !book.isDeleted())
+                .collect(Collectors.toList());
 
+        List<BookDTO> bookDTOs = discountedBooks.stream()
+                .map(bookService::convertToBookDTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(GenericResponse.builder()
+                .success(true)
+                .message("Lấy danh sách sách có khuyến mãi thành công")
+                .data(bookDTOs)
+                .build());
+    }
+    @CacheEvict(value = "discountCache", key = "#bookId")
     public ResponseEntity<GenericResponse> deleteDiscount(String userId, String bookId) {
         try {
             checkManagerAndAdminPermission(userId);

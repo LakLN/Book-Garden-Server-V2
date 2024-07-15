@@ -9,29 +9,22 @@ import com.example.bookgarden.exception.NotFoundException;
 import com.example.bookgarden.repository.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.bson.types.ObjectId;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Entities;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
-import java.lang.reflect.Array;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,14 +49,16 @@ public class BookService {
     @Autowired
     private ReviewRepository reviewRepository;
     @Autowired
-    private  ReviewService reviewService;
-    @Autowired DiscountRepository discountRepository;
+    private ReviewService reviewService;
+    @Autowired
+    private DiscountRepository discountRepository;
     @Autowired
     private NotificationService notificationService;
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
     @Value("${client.host}")
     private String clientHost;
+
     private void checkAdminPermission(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
@@ -72,6 +67,7 @@ public class BookService {
             throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
         }
     }
+
     private void checkAdminAndManagerPermission(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
@@ -80,6 +76,7 @@ public class BookService {
             throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
         }
     }
+
     public ResponseEntity<GenericResponse> getAllBooks() {
         try {
             List<Book> books = bookRepository.findByIsDeletedFalse();
@@ -99,6 +96,7 @@ public class BookService {
                     .build());
         }
     }
+
     public ResponseEntity<GenericResponse> getAllDeletedBooks(String userId) {
         try {
             checkAdminPermission(userId);
@@ -120,7 +118,8 @@ public class BookService {
                     .build());
         }
     }
-    public ResponseEntity<GenericResponse> getBookById (String bookId){
+
+    public ResponseEntity<GenericResponse> getBookById(String bookId) {
         try {
             Optional<Book> optionalBook = bookRepository.findById(new ObjectId(bookId));
 
@@ -153,6 +152,7 @@ public class BookService {
                     .build());
         }
     }
+
     @Cacheable("relatedBooksCache")
     public ResponseEntity<GenericResponse> getRelatedBooks(String bookId) {
         try {
@@ -191,6 +191,7 @@ public class BookService {
                     .build());
         }
     }
+
     @Cacheable("bestSellerBooksCache")
     public ResponseEntity<GenericResponse> getBestSellerBooks() {
         try {
@@ -214,6 +215,8 @@ public class BookService {
                     .build());
         }
     }
+
+    @CacheEvict(value = {"bookDTOCache", "bookDetailDTOCache", "relatedBooksCache", "bestSellerBooksCache"}, allEntries = true)
     public ResponseEntity<GenericResponse> addBook(String userId, AddBookRequestDTO addBookRequestDTO, MultipartHttpServletRequest imageRequest) {
         try {
             checkAdminAndManagerPermission(userId);
@@ -285,9 +288,6 @@ public class BookService {
                     .build());
         }
     }
-
-
-
     private List<Category> getCategoriesFromString(String categoriesStr, Book book) {
         String[] categoryArray = categoriesStr.replaceAll("[\\[\\]]", "").split(",");
         return Arrays.stream(categoryArray)
@@ -308,6 +308,7 @@ public class BookService {
                 .map(authorName -> findOrCreateAuthor(authorName, book))
                 .collect(Collectors.toList());
     }
+    @CacheEvict(value = {"bookDTOCache", "bookDetailDTOCache", "relatedBooksCache", "bestSellerBooksCache"}, allEntries = true)
     public ResponseEntity<GenericResponse> updateBook(String userId, String bookId, UpdateBookRequestDTO updateBookRequestDTO, MultipartHttpServletRequest imageRequest) {
         try {
             checkAdminAndManagerPermission(userId);
@@ -366,8 +367,7 @@ public class BookService {
 
             bookRepository.save(book);
             bookDetailRepository.save(bookDetail);
-            BookDTO bookDTO = updateBookCache(book);
-            BookDetailDTO bookDetailDTO = updateBookDetailCache(book);
+            BookDetailDTO bookDetailDTO = convertToBookDetailDTO(book);
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
                     .message("Cập nhật sách thành công")
@@ -381,14 +381,8 @@ public class BookService {
                     .build());
         }
     }
-    @CachePut(value = "bookDTOCache", key = "#bookId")
-    public BookDetailDTO updateBookDetailCache(Book book) {
-        return convertToBookDetailDTO(book);
-    }
-    @CachePut(value = "bookDTOCache", key = "#bookId")
-    public BookDTO updateBookCache(Book book) {
-        return convertToBookDTO(book);
-    }
+
+    @CacheEvict(value = {"bookDTOCache", "bookDetailDTOCache", "relatedBooksCache", "bestSellerBooksCache"}, allEntries = true)
     public ResponseEntity<GenericResponse> deleteBook(String userId, String bookId) {
         try {
             checkAdminPermission(userId);
@@ -419,6 +413,8 @@ public class BookService {
                     .build());
         }
     }
+
+    @CacheEvict(value = {"bookDTOCache", "bookDetailDTOCache", "relatedBooksCache", "bestSellerBooksCache"}, allEntries = true)
     public ResponseEntity<GenericResponse> restoreBook(String userId, String bookId) {
         try {
             checkAdminPermission(userId);
@@ -456,7 +452,6 @@ public class BookService {
                     .build());
         }
     }
-
 
     public ResponseEntity<GenericResponse> reviewBook(String userId, String bookId, ReviewBookRequestDTO reviewBookRequestDTO) {
         try {
@@ -501,6 +496,7 @@ public class BookService {
                     .build());
         }
     }
+
     private List<Book> findRelatedBooks(List<ObjectId> authorIds, List<ObjectId> categoryIds) {
         Set<Book> relatedBooks = new LinkedHashSet<>(bookRepository.findRelatedBooksByAuthorsAndCategories(authorIds, categoryIds));
         relatedBooks.addAll(bookRepository.findRelatedBooksByAuthors(authorIds));
@@ -539,7 +535,7 @@ public class BookService {
 
         List<ObjectId> authorIds = book.getAuthors();
         if (authorIds != null && !authorIds.isEmpty()) {
-            List<Author> authors = authorRepository.findAllByIdInAndIsDeletedFalse(authorIds);
+            List<Author> authors = authorRepository.findAllByIdIn(authorIds);
             List<AuthorDTO> authorDTOs = authors.stream()
                     .map(author -> modelMapper.map(author, AuthorDTO.class))
                     .collect(Collectors.toList());
@@ -549,8 +545,11 @@ public class BookService {
         }
         Optional<Discount> discountOptional = discountRepository.findByBookId(book.getId());
         if (discountOptional.isPresent()){
-            int discountPercent = applyDiscountPercentage(discountOptional.get());
+            Discount discount = discountOptional.get();
+            int discountPercent = applyDiscountPercentage(discount);
             bookDTO.setDiscountPercent(discountPercent);
+            bookDTO.setStartDate(discount.getStartDate());
+            bookDTO.setEndDate(discount.getEndDate());
         }
         return bookDTO;
     }
@@ -590,7 +589,7 @@ public class BookService {
 
         List<ObjectId> authorIds = book.getAuthors();
         if (authorIds != null && !authorIds.isEmpty()) {
-            List<Author> authors = authorRepository.findAllByIdInAndIsDeletedFalse(authorIds);
+            List<Author> authors = authorRepository.findAllByIdIn(authorIds);
             List<AuthorDTO> authorDTOs = authors.stream()
                     .map(author -> modelMapper.map(author, AuthorDTO.class))
                     .collect(Collectors.toList());
@@ -619,13 +618,11 @@ public class BookService {
         return bookDetailDTO;
     }
 
-
-
-    private ReviewDTO convertReviewToDTO(Review review){
+    private ReviewDTO convertReviewToDTO(Review review) {
         ModelMapper modelMapper = new ModelMapper();
         ReviewDTO reviewDTO = modelMapper.map(review, ReviewDTO.class);
         Optional<User> optionalUser = userRepository.findById(review.getUser().toString());
-        if(optionalUser.isPresent()){
+        if (optionalUser.isPresent()) {
             UserPostDTO userPostDTO = modelMapper.map(optionalUser.get(), UserPostDTO.class);
             reviewDTO.setUser(userPostDTO);
         }
@@ -636,29 +633,32 @@ public class BookService {
         Optional<Category> optionalCategory = categoryRepository.findByCategoryName(categoryName);
         Category category = optionalCategory.orElseGet(() -> categoryRepository.save(new Category(categoryName)));
         List<ObjectId> books = category.getBooks();
-        books.add((book.getId()));
+        books.add(book.getId());
         category.setBooks(books);
         categoryRepository.save(category);
         return category;
     }
 
     public Author findOrCreateAuthor(String authorName, Book book) {
-        Optional<Author> optionalAuthor = authorRepository.findByAuthorNameAndIsDeletedFalse(authorName);
+        Optional<Author> optionalAuthor = authorRepository.findByAuthorName(authorName);
         Author author = optionalAuthor.orElseGet(() -> authorRepository.save(new Author(authorName)));
         List<ObjectId> books = author.getBooks();
-        books.add((book.getId()));
+        books.add(book.getId());
         author.setBooks(books);
         authorRepository.save(author);
         return author;
     }
+
     public int applyDiscountPercentage(Discount discount) {
         LocalDate currentDate = LocalDate.now();
+        LocalDate startDate = discount.getStartDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate endDate = discount.getEndDate() != null ? discount.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate() : null;
 
-        if (currentDate.isBefore(discount.getStartDate())) {
+        if (currentDate.isBefore(startDate)) {
             return 0;
         }
 
-        if (discount.getEndDate() != null && currentDate.isAfter(discount.getEndDate())) {
+        if (endDate != null && currentDate.isAfter(endDate)) {
             return 0;
         }
 

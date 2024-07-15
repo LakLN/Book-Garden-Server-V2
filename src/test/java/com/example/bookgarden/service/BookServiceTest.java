@@ -121,7 +121,7 @@ public class BookServiceTest {
         when(bookRepository.findById(new ObjectId(bookId))).thenReturn(Optional.of(book));
         when(bookDetailRepository.findByBook(new ObjectId(bookId))).thenReturn(Optional.of(bookDetail));
         when(categoryRepository.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
-        when(authorRepository.findAllByIdInAndIsDeletedFalse(anyList())).thenReturn(Collections.emptyList());
+        when(authorRepository.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
         when(reviewRepository.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
 
         // Act
@@ -164,7 +164,7 @@ public class BookServiceTest {
         when(bookRepository.findById(bookId)).thenReturn(Optional.of(book));
         when(bookRepository.findRelatedBooksByAuthorsAndCategories(any(), any())).thenReturn(Arrays.asList(book));
         when(categoryRepository.findAllByIdIn(any())).thenReturn(Arrays.asList(new Category()));
-        when(authorRepository.findAllByIdInAndIsDeletedFalse(any())).thenReturn(Arrays.asList(new Author()));
+        when(authorRepository.findAllByIdIn(any())).thenReturn(Arrays.asList(new Author()));
 
         ResponseEntity<GenericResponse> response = bookService.getRelatedBooks(bookId.toHexString());
 

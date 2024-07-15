@@ -13,6 +13,9 @@ import java.util.Optional;
 @Repository
 public interface AuthorRepository extends MongoRepository<Author, String> {
     List<Author> findAllByIdInAndIsDeletedFalse(List<ObjectId> ids);
+    List<Author> findAllByIdIn(List<ObjectId> ids);
     Optional<Author> findByAuthorNameAndIsDeletedFalse(String authorName);
+    Optional<Author> findByAuthorName(String authorName);
     Optional<Author> findByIdAndIsDeletedFalse(ObjectId authorId);
+    Optional<Author> findById(ObjectId authorId);
 }

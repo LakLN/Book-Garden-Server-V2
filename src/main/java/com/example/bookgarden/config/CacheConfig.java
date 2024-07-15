@@ -14,8 +14,8 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         return new ConcurrentMapCacheManager(
-                "bookDTOCache", "categories", "authors", "bookDetails", "bookDetailDTOCache",
+                "bookDTOCache", "categoryCache", "categoryNameCache", "authors", "bookDetails", "bookDetailDTOCache",
                 "reviews", "relatedBooksCache", "bestSellerBooksCache", "authorDTOCache", "orderDTOCache",
-                "orderItemDTOCache", "searchHistoryCache", "recommendations");
+                "orderItemDTOCache", "searchHistoryCache", "recommendations", "discountedBooksCache");
     }
 }

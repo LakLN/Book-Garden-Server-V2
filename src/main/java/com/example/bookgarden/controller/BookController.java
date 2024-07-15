@@ -167,4 +167,10 @@ public class BookController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return discountService.deleteDiscount(userId, bookId);
     }
+    //Get All Discount
+    @GetMapping("/discounts")
+    public ResponseEntity<GenericResponse> getAllDiscountedBooks() {
+        return discountService.getAllDiscountedBooks();
+    }
 }
+

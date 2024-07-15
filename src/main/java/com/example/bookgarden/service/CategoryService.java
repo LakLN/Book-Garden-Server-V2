@@ -8,13 +8,14 @@ import com.example.bookgarden.repository.BookRepository;
 import com.example.bookgarden.repository.CategoryRepository;
 import com.example.bookgarden.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.bson.types.ObjectId;
 
-import javax.persistence.Cacheable;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -22,18 +23,19 @@ import java.util.stream.Collectors;
 
 @Service
 public class CategoryService {
-    private final CategoryRepository categoryRepository;
+
     @Autowired
-    private CategoryService(CategoryRepository categoryRepository) {
-        this.categoryRepository = categoryRepository;
-    }
+    private CategoryRepository categoryRepository;
+
     @Autowired
     private UserRepository userRepository;
+
     @Autowired
     private BookRepository bookRepository;
+
     @Autowired
     private BookService bookService;
-
+    @CacheEvict(value = "categoryCache", allEntries = true)
     public ResponseEntity<GenericResponse> addCategory(String userId, AddCategoryRequestDTO addCategoryRequestDTO){
         try {
             if (!checkAdminPermission(userId)) {
@@ -72,6 +74,7 @@ public class CategoryService {
         }
     }
 
+    @Cacheable(value = "categoryCache")
     public ResponseEntity<GenericResponse> getAllCategories() {
         try {
             List<Category> categories = categoryRepository.findAll();
@@ -93,9 +96,10 @@ public class CategoryService {
         }
     }
 
+    @Cacheable(value = "categoryCache", key = "#categoryId")
     public ResponseEntity<GenericResponse> getCategoryById(String categoryId) {
         try {
-            Optional<Category> categoryOptional = categoryRepository.findById(categoryId);
+            Optional<Category> categoryOptional = categoryRepository.findById(new ObjectId(categoryId));
             if (categoryOptional.isPresent()) {
                 CategoryResponseDTO categoryDTO = convertToCategoryDTO(categoryOptional.get());
                 return ResponseEntity.ok(GenericResponse.builder()
@@ -119,6 +123,7 @@ public class CategoryService {
         }
     }
 
+    @CachePut(value = "categoryCache", key = "#categoryId")
     public ResponseEntity<GenericResponse> updateCategories(String userId, String categoryId, AddCategoryRequestDTO updateCategoryRequestDTO) {
         try {
             if (!checkAdminPermission(userId)) {
@@ -128,7 +133,7 @@ public class CategoryService {
                         .data(null)
                         .build());
             }
-            Optional<Category> categoryOptional = categoryRepository.findById(categoryId);
+            Optional<Category> categoryOptional = categoryRepository.findById(new ObjectId(categoryId));
             if (!categoryOptional.isPresent()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                         .success(false)
@@ -157,6 +162,7 @@ public class CategoryService {
         }
     }
 
+    @CacheEvict(value = "categoryCache", key = "#categoryId")
     public ResponseEntity<GenericResponse> deleteCategory(String userId, String categoryId) {
         try {
             if (!checkAdminPermission(userId)) {
@@ -224,10 +230,9 @@ public class CategoryService {
 
         return categoryResponseDTO;
     }
+
     public boolean checkAdminPermission(String userId) {
         Optional<User> optionalUser = userRepository.findById(userId);
         return optionalUser.isPresent() && "Admin".equals(optionalUser.get().getRole());
     }
-
-
 }

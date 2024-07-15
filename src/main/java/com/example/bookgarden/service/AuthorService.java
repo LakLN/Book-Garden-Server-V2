@@ -125,7 +125,7 @@ public class AuthorService {
     public ResponseEntity<GenericResponse> addAuthor(String userId, UpdateAuthorRequestDTO addAuthorRequestDTO){
         try {
             checkAdminAndManagerPermission(userId);
-            Optional<Author> existingAuthor = authorRepository.findByAuthorNameAndIsDeletedFalse(addAuthorRequestDTO.getAuthorName());
+            Optional<Author> existingAuthor = authorRepository.findByAuthorName(addAuthorRequestDTO.getAuthorName());
             if (existingAuthor.isPresent()){
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
                         .success(false)
@@ -156,7 +156,7 @@ public class AuthorService {
     public ResponseEntity<GenericResponse> deleteAuthor(String userId, String authorId) {
         try {
             checkAdminPermission(userId);
-            Optional<Author> authorOptional = authorRepository.findByIdAndIsDeletedFalse(new ObjectId(authorId));
+            Optional<Author> authorOptional = authorRepository.findById(new ObjectId(authorId));
             if (authorOptional.isPresent()) {
                 Author author = authorOptional.get();
                 author.setIsDeleted(true);
