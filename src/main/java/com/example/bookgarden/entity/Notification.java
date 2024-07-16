@@ -27,4 +27,5 @@ public class Notification implements Serializable {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
     private Date createdAt = new Date();
     private boolean read = false;
+    private String createdBy = "System";
 }

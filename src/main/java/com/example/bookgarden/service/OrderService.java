@@ -90,7 +90,7 @@ public class OrderService {
             OrderDTO orderDTO = convertToOrderDTO(savedOrder);
 
             String orderHistoryUrl = clientHost + "/profile/order-history";
-            notificationService.createNotification(userId, "Đơn hàng mới", "Đơn hàng của bạn đã được đặt thành công.", orderHistoryUrl);
+            notificationService.createNotification(userId, "Đơn hàng mới", "Đơn hàng của bạn đã được đặt thành công.", orderHistoryUrl, "");
 
             return ResponseEntity.ok(GenericResponse.builder()
                     .success(true)
@@ -118,7 +118,7 @@ public class OrderService {
             if (orderAgeInMinutes >= 30 && "PENDING".equals(order.getStatus().toString())) {
                 order.setStatus("CANCELLED");
                 orderRepository.save(order);
-                notificationService.createNotification(order.getUser().toString(), "Đơn hàng bị hủy", "Đơn hàng của bạn đã bị hủy do không thanh toán thành công trong thời gian quy định.", clientHost + "/profile/order-history");
+                notificationService.createNotification(order.getUser().toString(), "Đơn hàng bị hủy", "Đơn hàng của bạn đã bị hủy do không thanh toán thành công trong thời gian quy định.", clientHost + "/profile/order-history", "");
             }
         }
     }
@@ -354,7 +354,7 @@ public class OrderService {
             OrderDTO orderDTO = convertToOrderDTO(updatedOrder);
 
             String notificationMessage = "Trạng thái đơn hàng của bạn đã được cập nhật thành " + updateOrderStatusRequestDTO.getStatus();
-            Notification notification = notificationService.createNotification(order.getUser().toString(), "Cập nhật đơn hàng", notificationMessage, clientHost + "/profile/order-history");
+            Notification notification = notificationService.createNotification(order.getUser().toString(), "Cập nhật đơn hàng", notificationMessage, clientHost + "/profile/order-history", "");
             messagingTemplate.convertAndSend("/topic/notifications/" + order.getUser().toString(), notification);
 
             return ResponseEntity.ok(GenericResponse.builder()

@@ -270,7 +270,7 @@ public class BookService {
             String notificationMessage = "Một quyển sách mới đã được thêm vào: " + book.getTitle();
             List<User> users = userRepository.findAllCustomerUsers();
             for (User user : users) {
-                Notification notification = notificationService.createNotification(user.getId().toString(), "Sách mới", notificationMessage, clientHost + "/book-detail/" + newBook.getId().toString());
+                Notification notification = notificationService.createNotification(user.getId().toString(), "Sách mới", notificationMessage, clientHost + "/book-detail/" + newBook.getId().toString(), "");
                 messagingTemplate.convertAndSend("/topic/notifications/" + user.getId().toString(), notification);
             }
 

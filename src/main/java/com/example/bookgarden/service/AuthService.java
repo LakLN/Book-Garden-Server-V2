@@ -81,7 +81,7 @@ public class AuthService {
         userRepository.save(newUser);
         otpService.sendRegisterOtp(registerDTO.getEmail());
         String notificationMessage = "Chào mừng bạn đến với Book Garden! Cảm ơn bạn đã đăng ký, chúng tôi hy vọng bạn sẽ có những trải nghiệm tuyệt vời!";
-        Notification notification = notificationService.createNotification(newUser.getId().toString(), "Chào mừng", notificationMessage, "/");
+        Notification notification = notificationService.createNotification(newUser.getId().toString(), "Chào mừng", notificationMessage, "/", "");
         messagingTemplate.convertAndSend("/topic/notifications/" + newUser.getId().toString(), notification);
         return GenericResponse.builder()
                 .success(true)

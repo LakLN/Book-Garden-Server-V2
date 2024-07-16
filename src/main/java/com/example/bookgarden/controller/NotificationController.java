@@ -26,7 +26,7 @@ public class NotificationController {
     private JwtTokenProvider jwtTokenProvider;
 
     //Get notification
-        @GetMapping("")
+    @GetMapping("")
     ResponseEntity<GenericResponse> getNotifications (@RequestHeader("Authorization") String authorizationHeader){
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
@@ -62,5 +62,12 @@ public class NotificationController {
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return notificationService.markAsRead(userId, notificationId);
     }
+    @GetMapping("/admin")
+    public ResponseEntity<GenericResponse> getAdminNotifications(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return notificationService.getAdminNotifications(userId);
+    }
+
 
 }

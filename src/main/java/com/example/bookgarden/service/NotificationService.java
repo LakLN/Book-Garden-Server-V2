@@ -1,6 +1,7 @@
 package com.example.bookgarden.service;
 
 import com.example.bookgarden.dto.GenericResponse;
+import com.example.bookgarden.dto.NotificationDTO;
 import com.example.bookgarden.dto.NotificationRequestDTO;
 import com.example.bookgarden.entity.Notification;
 import com.example.bookgarden.entity.User;
@@ -9,6 +10,7 @@ import com.example.bookgarden.exception.NotFoundException;
 import com.example.bookgarden.repository.NotificationRepository;
 import com.example.bookgarden.repository.UserRepository;
 import org.bson.types.ObjectId;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class NotificationService {
@@ -54,7 +57,7 @@ public class NotificationService {
         }
     }
 
-    public Notification createNotification(String userId, String title, String message, String url) {
+    public Notification createNotification(String userId, String title, String message, String url, String createdBy) {
         Notification notification = new Notification();
         notification.setUserId(userId);
         notification.setTitle(title);
@@ -62,15 +65,17 @@ public class NotificationService {
         if (url!=null) {
             notification.setUrl(url);
         }
+        if (createdBy != null && !createdBy.isEmpty()) {
+            notification.setCreatedBy(createdBy);
+        }
         return notificationRepository.save(notification);
     }
     public ResponseEntity<GenericResponse> createNotificationForAll(String userId, NotificationRequestDTO notificationRequestDTO){
         try {
             checkAdminAndManagerPermission(userId);
             List<User> customers = userRepository.findAllCustomerUsers();
-            System.out.println(customers);
             for (User customer : customers) {
-                Notification createdNotification = createNotification(customer.getId(), notificationRequestDTO.getTitle(), notificationRequestDTO.getMessage(), "");
+                Notification createdNotification = createNotification(customer.getId(), notificationRequestDTO.getTitle(), notificationRequestDTO.getMessage(), "", "Admin");
                 simpMessagingTemplate.convertAndSend("/topic/notifications/" + customer.getId(), createdNotification);
             }
             return ResponseEntity.status(HttpStatus.OK).body(GenericResponse.builder()
@@ -124,7 +129,49 @@ public class NotificationService {
                     .build());
         }
     }
+    public ResponseEntity<GenericResponse> getAdminNotifications(String userId) {
+        try {
+            Optional<User> optionalUser = userRepository.findById(userId);
+            if (optionalUser.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Người dùng không tồn tại")
+                        .data(null)
+                        .build());
+            }
 
+            User user = optionalUser.get();
+            if (!"Admin".equals(user.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn không có quyền truy cập thông báo của Admin")
+                        .data(null)
+                        .build());
+            }
+
+            List<Notification> notifications = notificationRepository.findByCreatedBy("Admin");
+            List<NotificationDTO> notificationDTOs = notifications.stream()
+                    .map(this::convertToNotificationDTO)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(GenericResponse.builder()
+                    .success(true)
+                    .message("Lấy danh sách thông báo của Admin thành công")
+                    .data(notificationDTOs)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi lấy danh sách thông báo của Admin")
+                    .data(e.getMessage())
+                    .build());
+        }
+    }
+
+    private NotificationDTO convertToNotificationDTO(Notification notification) {
+        ModelMapper modelMapper = new ModelMapper();
+        return modelMapper.map(notification, NotificationDTO.class);
+    }
     private void checkAdminAndManagerPermission(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Người dùng không tồn tại"));
