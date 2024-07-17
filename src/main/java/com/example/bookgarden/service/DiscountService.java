@@ -21,7 +21,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -70,14 +72,22 @@ public class DiscountService {
     }
     @Cacheable("discountedBooksCache")
     public ResponseEntity<GenericResponse> getAllDiscountedBooks() {
-        List<Discount> discounts = discountRepository.findAll();
-        List<Book> discountedBooks = discounts.stream()
-                .map(discount -> bookRepository.findById(discount.getBookId()).orElse(null))
-                .filter(book -> book != null && !book.isDeleted())
+        LocalDate currentDate = LocalDate.now();
+
+        List<Discount> discounts = discountRepository.findAll().stream()
+                .filter(discount -> discount.getDiscountPercent() > 0 &&
+                        discount.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(currentDate))
                 .collect(Collectors.toList());
 
-        List<BookDTO> bookDTOs = discountedBooks.stream()
-                .map(bookService::convertToBookDTO)
+        List<BookDTO> bookDTOs = discounts.stream()
+                .map(discount -> {
+                    Book book = bookRepository.findById(discount.getBookId()).orElse(null);
+                    if (book != null && !book.isDeleted()) {
+                        return bookService.convertToBookDTO(book);
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(GenericResponse.builder()
@@ -86,6 +96,7 @@ public class DiscountService {
                 .data(bookDTOs)
                 .build());
     }
+
     @CacheEvict(value = "discountCache", key = "#bookId")
     public ResponseEntity<GenericResponse> deleteDiscount(String userId, String bookId) {
         try {

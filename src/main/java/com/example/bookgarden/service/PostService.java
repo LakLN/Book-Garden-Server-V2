@@ -1,5 +1,7 @@
 package com.example.bookgarden.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.example.bookgarden.constant.OrderStatus;
 import com.example.bookgarden.dto.*;
 import com.example.bookgarden.entity.*;
@@ -11,6 +13,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -32,7 +37,13 @@ public class PostService {
     private BookRepository bookRepository;
     @Autowired
     private BookDetailRepository bookDetailRepository;
-    public ResponseEntity<GenericResponse> createPost(String userId, PostCreateRequestDTO postCreateRequestDTO) {
+    @Autowired
+    private OpenAIModerationService openAIModerationService;
+    @Autowired
+    private Cloudinary cloudinary;
+
+    @Transactional
+    public ResponseEntity<GenericResponse> createPost(String userId, PostCreateRequestDTO postCreateRequestDTO, MultipartHttpServletRequest imageRequest) {
         try {
             Optional<User> optionalUser = userRepository.findById(userId);
             if (optionalUser.isEmpty()) {
@@ -42,19 +53,46 @@ public class PostService {
                         .data(null)
                         .build());
             }
+
+            if (!openAIModerationService.isContentAppropriate(postCreateRequestDTO.getContent())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Nội dung bài viết không phù hợp")
+                        .data(null)
+                        .build());
+            }
+
             Post newPost = new Post();
             newPost.setTitle(postCreateRequestDTO.getTitle());
             newPost.setContent(postCreateRequestDTO.getContent());
             newPost.setPostedBy(new ObjectId(userId));
+
             if (postCreateRequestDTO.getBookId() != null && !postCreateRequestDTO.getBookId().isEmpty()) {
                 newPost.setBook(new ObjectId(postCreateRequestDTO.getBookId()));
             } else {
                 newPost.setBook(null);
             }
-            newPost.setStatus("Pending");
+
+            MultipartFile image = imageRequest.getFile("image");
+            // Upload ảnh nếu có
+            if (image != null && !image.isEmpty()) {
+                try {
+                    String imageUrl = cloudinary.uploader().upload(image.getBytes(), ObjectUtils.emptyMap()).get("secure_url").toString();
+                    newPost.setImage(imageUrl);
+                } catch (Exception e) {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                            .success(false)
+                            .message("Lỗi upload ảnh")
+                            .data(null)
+                            .build());
+                }
+            }
+
+            newPost.setStatus("Approved");
 
             Post savedPost = postRepository.save(newPost);
             PostResponseDTO postResponseDTO = convertPostToDTO(savedPost);
+
             return ResponseEntity.status(HttpStatus.CREATED).body(GenericResponse.builder()
                     .success(true)
                     .message("Bài viết đã được tạo thành công")
@@ -66,7 +104,7 @@ public class PostService {
                     .message("BookId không hợp lệ")
                     .data(e.getMessage())
                     .build());
-        } catch (Exception e){
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
                     .success(false)
                     .message("Lỗi khi tạo bài viết")
@@ -74,6 +112,7 @@ public class PostService {
                     .build());
         }
     }
+
     public ResponseEntity<GenericResponse> editPost(String userId, String postId, PostCreateRequestDTO editPostRequest){
         try {
             Optional<User> optionalUser = userRepository.findById(userId);

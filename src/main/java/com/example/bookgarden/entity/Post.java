@@ -25,4 +25,5 @@ public class Post implements Serializable {
     private ObjectId book;
     private List<ObjectId> comments;
     private boolean deleted = false;
+    private String image = null;
 }

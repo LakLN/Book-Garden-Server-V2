@@ -14,6 +14,7 @@ import org.springframework.security.core.parameters.P;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,10 +31,25 @@ public class PostController {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
     @PostMapping("/create")
-    public ResponseEntity<GenericResponse> createPost(@RequestHeader("Authorization") String authorizationHeader, @RequestBody PostCreateRequestDTO createPostRequestDTO) {
+    public ResponseEntity<GenericResponse> createPost(@RequestHeader("Authorization") String authorizationHeader,
+                                                      @Valid @ModelAttribute PostCreateRequestDTO createPostRequestDTO,
+                                                      MultipartHttpServletRequest imageRequest, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            List<ObjectError> errors = bindingResult.getAllErrors();
+            List<String> errorMessages = new ArrayList<>();
+            for (ObjectError error : errors) {
+                String errorMessage = error.getDefaultMessage();
+                errorMessages.add(errorMessage);
+            }
+            return ResponseEntity.status(400).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Dữ liệu đầu vào không hợp lệ")
+                    .data(errorMessages)
+                    .build());
+        }
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
-        return postService.createPost(userId, createPostRequestDTO);
+        return postService.createPost(userId, createPostRequestDTO, imageRequest);
     }
 
     @GetMapping("")
