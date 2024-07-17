@@ -1,0 +1,33 @@
+services:
+  - name: book-garden
+    type: web
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: bookgarden-db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: bookgarden-db
+          property: username
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: bookgarden-db
+          property: password
+      - key: CLOUDINARY_CLOUD_NAME
+        value: your_cloudinary_cloud_name
+      - key: CLOUDINARY_API_KEY
+        value: your_cloudinary_api_key
+      - key: CLOUDINARY_API_SECRET
+        value: your_cloudinary_api_secret
+      - key: SPRING_MAIL_USERNAME
+        value: your_email_username
+      - key: SPRING_MAIL_PASSWORD
+        value: your_email_password
+      - key: GOOGLE_CLIENT_ID
+        value: your_google_client_id
+      - key: GOOGLE_CLIENT_SECRET
+        value: your_google_client_secret
