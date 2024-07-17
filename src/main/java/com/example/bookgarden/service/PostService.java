@@ -74,7 +74,6 @@ public class PostService {
             }
 
             MultipartFile image = imageRequest.getFile("image");
-            // Upload ảnh nếu có
             if (image != null && !image.isEmpty()) {
                 try {
                     String imageUrl = cloudinary.uploader().upload(image.getBytes(), ObjectUtils.emptyMap()).get("secure_url").toString();

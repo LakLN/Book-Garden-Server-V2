@@ -16,5 +16,6 @@ public class PostResponseDTO {
     private Date postedDate;
     private Boolean deleted;
     private BookPostDTO book;
+    private String image;
     private List<CommentDTO> comments;
 }
