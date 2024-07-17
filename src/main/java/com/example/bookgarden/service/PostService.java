@@ -49,7 +49,7 @@ public class PostService {
             if (optionalUser.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
                         .success(false)
-                        .message("Không tìm thấy người dùng")
+                        .message("Không tìm thấy người dùng!")
                         .data(null)
                         .build());
             }

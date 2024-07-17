@@ -46,7 +46,6 @@ public class OpenAIModerationService {
                 }
             }
         }
-
         return true;
     }
 }
