@@ -196,7 +196,76 @@ public class OrderService {
                     .build());
         }
     }
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
+    public ResponseEntity<GenericResponse> confirmOrderReceived(String userId, String orderId) {
+        try {
+            Optional<Order> optionalOrder = orderRepository.findById(new ObjectId(orderId));
+            if (optionalOrder.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Không tìm thấy đơn hàng")
+                        .data(null)
+                        .build());
+            }
 
+            Order order = optionalOrder.get();
+            if (!order.getUser().equals(new ObjectId(userId))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Bạn không có quyền xác nhận đơn hàng này")
+                        .data(null)
+                        .build());
+            }
+
+            if (!OrderStatus.fromString(order.getStatus().toString()).equals(OrderStatus.DELIVERED)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Chỉ có thể xác nhận đơn hàng đã được giao")
+                        .data(null)
+                        .build());
+            }
+
+            order.setStatus(OrderStatus.CONFIRMED.toString());
+            Order updatedOrder = orderRepository.save(order);
+            OrderDTO orderDTO = convertToOrderDTO(updatedOrder);
+
+            return ResponseEntity.ok(GenericResponse.builder()
+                    .success(true)
+                    .message("Xác nhận đơn hàng thành công")
+                    .data(orderDTO)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(GenericResponse.builder()
+                    .success(false)
+                    .message("Lỗi khi xác nhận đơn hàng")
+                    .data(e.getMessage())
+                    .build());
+        }
+    }
+
+
+    @Scheduled(fixedRate = 86400000) // 24 giờ
+    @Caching(evict = {
+            @CacheEvict(value = "orderDTOCache", allEntries = true),
+            @CacheEvict(value = "orderItemDTOCache", allEntries = true)
+    })
+    public void autoConfirmDeliveredOrders() {
+        List<Order> deliveredOrders = orderRepository.findByPaymentStatus(OrderStatus.DELIVERED.toString());
+        Date now = new Date();
+        for (Order order : deliveredOrders) {
+            long diffInMillies = Math.abs(now.getTime() - order.getOrderDate().getTime());
+            long diff = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
+            if (diff >= 7) { // Nếu đơn hàng đã được giao trong 7 ngày
+                order.setStatus(OrderStatus.CONFIRMED.toString());
+                orderRepository.save(order);
+                notificationService.createNotification(order.getUser().toString(), "Đơn hàng tự động xác nhận", "Đơn hàng của bạn đã được tự động xác nhận sau 7 ngày giao hàng.", clientHost + "/profile/order-history", "");
+            }
+        }
+    }
     @Cacheable("orderDTOCache")
     public ResponseEntity<GenericResponse> getAllOrders(String userId, int page, int size) {
         try {

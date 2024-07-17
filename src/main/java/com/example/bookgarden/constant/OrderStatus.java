@@ -5,6 +5,7 @@ public enum OrderStatus {
     PROCESSING,
     DELIVERING,
     DELIVERED,
+    CONFIRMED,
     CANCELLED;
     public static OrderStatus fromString(String status) {
         for (OrderStatus orderStatus : OrderStatus.values()) {

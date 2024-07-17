@@ -87,12 +87,20 @@ public class CustomerController {
         return orderService.getUserOrders(userId);
     }
     //Cancel order
-    @PostMapping("orders/{orderId}/cancel")
+    @PostMapping("/orders/{orderId}/cancel")
     public ResponseEntity<GenericResponse> cancelOrder(@RequestHeader("Authorization") String authorizationHeader,
                                                        @PathVariable String orderId) {
         String token = authorizationHeader.substring(7);
         String userId = jwtTokenProvider.getUserIdFromJwt(token);
         return orderService.cancelOrder(userId, orderId);
+    }
+    //Comfirm received order
+    @PutMapping("/orders/{orderId}/confirm-received")
+    public ResponseEntity<GenericResponse> confirmOrderReceived(@RequestHeader("Authorization") String authorizationHeader,
+                                                                @PathVariable String orderId) {
+        String token = authorizationHeader.substring(7);
+        String userId = jwtTokenProvider.getUserIdFromJwt(token);
+        return orderService.confirmOrderReceived(userId, orderId);
     }
     @GetMapping("/posts")
     public ResponseEntity<GenericResponse> getUserPosts(@RequestHeader("Authorization") String authorizationHeader) {
