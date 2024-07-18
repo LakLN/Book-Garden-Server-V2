@@ -18,10 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -529,29 +526,40 @@ public class PostService {
         ModelMapper modelMapper = new ModelMapper();
         PostResponseDTO postResponseDTO = modelMapper.map(post, PostResponseDTO.class);
 
-        Optional<User> optionalUser = userRepository.findById(post.getPostedBy().toString());
-        if (optionalUser.isPresent()) {
-            UserPostDTO userPostDTO = modelMapper.map(optionalUser.get(), UserPostDTO.class);
+        // Batch fetch users and books
+        List<String> userIds = List.of(post.getPostedBy().toString());
+        List<ObjectId> bookIds = post.getBook() != null ? List.of(post.getBook()) : List.of();
+
+        Map<String, User> usersMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+        Map<ObjectId, Book> booksMap = bookRepository.findAllById(bookIds).stream()
+                .collect(Collectors.toMap(Book::getId, book -> book));
+
+        // Set User DTO
+        if (usersMap.containsKey(post.getPostedBy())) {
+            UserPostDTO userPostDTO = modelMapper.map(usersMap.get(post.getPostedBy()), UserPostDTO.class);
             postResponseDTO.setPostedBy(userPostDTO);
         }
-        if(post.getBook() != null) {
-            Optional<Book> optionalBook = bookRepository.findById(post.getBook());
-            if (optionalBook.isPresent()) {
-                BookPostDTO bookPostDTO = modelMapper.map(optionalBook.get(), BookPostDTO.class);
-                bookDetailRepository.findByBook(optionalBook.get().getId())
-                        .ifPresent(bookDetail -> bookPostDTO.setImage(bookDetail.getImage()));
-                postResponseDTO.setBook(bookPostDTO);
-            }
+
+        // Set Book DTO
+        if (post.getBook() != null && booksMap.containsKey(post.getBook())) {
+            BookPostDTO bookPostDTO = modelMapper.map(booksMap.get(post.getBook()), BookPostDTO.class);
+            bookDetailRepository.findByBook(post.getBook())
+                    .ifPresent(bookDetail -> bookPostDTO.setImage(bookDetail.getImage()));
+            postResponseDTO.setBook(bookPostDTO);
         }
+
+        // Fetch comments
         List<ObjectId> commentIds = post.getComments();
         List<Comment> comments = commentRepository.findAllByIdIn(commentIds);
         List<CommentDTO> commentDTOs = comments.stream()
-                .map(comment -> commentService.convertCommentToDTO(comment))
+                .map(commentService::convertCommentToDTO)
                 .collect(Collectors.toList());
         postResponseDTO.setComments(commentDTOs);
 
         return postResponseDTO;
     }
+
 
     private boolean canUpdatePostStatus(String currentStatus, String newStatus) {
         switch (currentStatus) {
