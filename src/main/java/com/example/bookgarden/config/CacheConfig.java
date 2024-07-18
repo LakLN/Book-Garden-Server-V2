@@ -16,6 +16,6 @@ public class CacheConfig {
         return new ConcurrentMapCacheManager(
                 "bookDTOCache", "categoryCache", "categoryNameCache", "authors", "bookDetails", "bookDetailDTOCache",
                 "reviews", "relatedBooksCache", "bestSellerBooksCache", "authorDTOCache", "orderDTOCache",
-                "orderItemDTOCache", "searchHistoryCache", "recommendations", "discountedBooksCache");
+                "orderItemDTOCache", "searchHistoryCache", "recommendations", "discountedBooksCache", "discountCache");
     }
 }

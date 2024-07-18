@@ -13,5 +13,6 @@ public class PostCreateRequestDTO {
     private String content;
     private String bookId;
     private MultipartFile image;
+    private Boolean rejected_FE;
 
 }

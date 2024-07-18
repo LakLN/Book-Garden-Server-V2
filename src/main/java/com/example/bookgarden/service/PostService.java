@@ -9,6 +9,7 @@ import com.example.bookgarden.repository.*;
 import org.bson.types.ObjectId;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,10 @@ public class PostService {
     private OpenAIModerationService openAIModerationService;
     @Autowired
     private Cloudinary cloudinary;
-
+    @Value("${client.host}")
+    private String clientHost;
+    @Autowired
+    private NotificationService notificationService;
     @Transactional
     public ResponseEntity<GenericResponse> createPost(String userId, PostCreateRequestDTO postCreateRequestDTO, MultipartHttpServletRequest imageRequest) {
         try {
@@ -54,13 +58,7 @@ public class PostService {
                         .build());
             }
 
-            if (!openAIModerationService.isContentAppropriate(postCreateRequestDTO.getContent())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
-                        .success(false)
-                        .message("Nội dung bài viết không phù hợp")
-                        .data(null)
-                        .build());
-            }
+
 
             Post newPost = new Post();
             newPost.setTitle(postCreateRequestDTO.getTitle());
@@ -87,7 +85,19 @@ public class PostService {
                 }
             }
 
-            newPost.setStatus("Approved");
+            if (!openAIModerationService.isContentAppropriate(postCreateRequestDTO.getContent()) || postCreateRequestDTO.getRejected_FE() != null && postCreateRequestDTO.getRejected_FE()) {
+                newPost.setStatus("Rejected");
+                postRepository.save(newPost);
+                notificationService.createNotification(userId, "Bài viết bị từ chối", "Nội dung hoặc hình ảnh bài viết của bạn không phù hợp và đã bị từ chối.", clientHost + "/user/posts", "");
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
+                        .success(false)
+                        .message("Nội dung hoặc hình ảnh bài viết không phù hợp")
+                        .data(null)
+                        .build());
+            } else {
+                newPost.setStatus("Approved");
+            }
 
             Post savedPost = postRepository.save(newPost);
             PostResponseDTO postResponseDTO = convertPostToDTO(savedPost);
