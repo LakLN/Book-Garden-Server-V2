@@ -70,7 +70,7 @@ public class DiscountService {
                     .build());
         }
     }
-    @Cacheable("discountedBooksCache")
+
     public ResponseEntity<GenericResponse> getAllDiscountedBooks() {
         LocalDate currentDate = LocalDate.now();
 
@@ -97,7 +97,6 @@ public class DiscountService {
                 .build());
     }
 
-    @CacheEvict(value = "discountCache", key = "#bookId")
     public ResponseEntity<GenericResponse> deleteDiscount(String userId, String bookId) {
         try {
             checkManagerAndAdminPermission(userId);

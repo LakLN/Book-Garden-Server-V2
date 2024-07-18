@@ -23,26 +23,33 @@ public class OpenAIModerationService {
     }
 
     public boolean isContentAppropriate(String content) {
-        String url = "https://api.openai.com/v1/moderations";
+        String url = "https://api.openai.com/v1/chat/completions";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(openaiApiKey);
 
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("input", content);
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", "gpt-4");
+        requestBody.put("messages", List.of(
+                Map.of("role", "system", "content", "Bạn là một bộ lọc nội dung."),
+                Map.of("role", "user", "content", content)
+        ));
+        requestBody.put("max_tokens", 10);
 
-        HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
         if (response.getStatusCode() == HttpStatus.OK) {
             Map<String, Object> responseBody = response.getBody();
-            if (responseBody != null && responseBody.containsKey("results")) {
-                List<Map<String, Object>> results = (List<Map<String, Object>>) responseBody.get("results");
-                if (!results.isEmpty()) {
-                    Map<String, Object> firstResult = results.get(0);
-                    Boolean flagged = (Boolean) firstResult.get("flagged");
-                    return flagged != null ? !flagged : true;
+            if (responseBody != null) {
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+                if (!choices.isEmpty()) {
+                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                    String contentResponse = (String) message.get("content");
+                    // Tùy thuộc vào nội dung phản hồi, xác định nội dung có phù hợp hay không
+                    System.out.println(contentResponse);
+                    return !contentResponse.toLowerCase().contains("không phù hợp");
                 }
             }
         }

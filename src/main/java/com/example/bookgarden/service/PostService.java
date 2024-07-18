@@ -58,8 +58,6 @@ public class PostService {
                         .build());
             }
 
-
-
             Post newPost = new Post();
             newPost.setTitle(postCreateRequestDTO.getTitle());
             newPost.setContent(postCreateRequestDTO.getContent());
@@ -85,10 +83,13 @@ public class PostService {
                 }
             }
 
-            if (!openAIModerationService.isContentAppropriate(postCreateRequestDTO.getContent()) || postCreateRequestDTO.getRejected_FE() != null && postCreateRequestDTO.getRejected_FE()) {
+            boolean isContentAppropriate = openAIModerationService.isContentAppropriate(postCreateRequestDTO.getContent());
+            boolean isImageAppropriate = postCreateRequestDTO.getRejected_FE() == null || !postCreateRequestDTO.getRejected_FE();
+
+            if (!isContentAppropriate || !isImageAppropriate) {
                 newPost.setStatus("Rejected");
                 postRepository.save(newPost);
-                notificationService.createNotification(userId, "Bài viết bị từ chối", "Nội dung hoặc hình ảnh bài viết của bạn không phù hợp và đã bị từ chối.", clientHost + "/user/posts", "");
+                notificationService.createNotification(userId, "Bài viết bị từ chối", "Nội dung hoặc hình ảnh bài viết của bạn không phù hợp và đã bị từ chối.", clientHost + "/profile/my-post", "");
 
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GenericResponse.builder()
                         .success(false)
